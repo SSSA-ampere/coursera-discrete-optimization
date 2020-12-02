@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["./data/ks_4_0"]
+            "args": ["./data/ks_4_0"],
             "console": "integratedTerminal"
         }
     ]

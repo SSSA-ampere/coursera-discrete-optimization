@@ -1,8 +1,17 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from collections import namedtuple
-Item = namedtuple("Item", ['index', 'value', 'weight'])
+class Input_Item:
+    def __init__(self, index, value, weight):
+        # input data index
+        self.index = index
+        # item value
+        self.value = value
+        # item weight
+        self.weight  = weight
+
+    def __str__(self):
+        return '<%d, %d, %d>' % (self.index, self.value, self.weight)
 
 class Tree_Node:
     def __init__(self):
@@ -64,42 +73,43 @@ class Tree:
         # repeat until there is no item left or lifo is empty
         while (len(self.lifo) > 0):
             
+            # add another branch to the tree based on the next item of the input list
+            iitem = self.items[self.lifo[0].index]
+            # if there is enough capacity and 
+            
+            # then accept the item.
+            # the tree item (titem) has:
+            #   value: the current tree item + the next new item
+            #   room: is the current tree item room - the room required by the new item
+            #   estimate:  is the same estimate as the current tree item estimate
+            titem = Tree_Node()
+            titem.index = iitem.index
+            # since the right side is checkd 1st in this if, it will have priority over the left side
             if self.lifo[0].right == None:
-                # add another branch to the tree based on the next item
-                iitem = self.items[self.lifo[0].index]
-                # if there is enough capacity and 
-                # the current estimate is higher than the best value found so far,
-                # then accept the item.
-                if (self.lifo[0].room-iitem.weight) <= self.k and \
-                    self.lifo[0].estimate > self.best_value:
-                    # the tree item (titem) has:
-                    #   value: the current tree item + the next new item
-                    #   room: is the current tree item room - the room required by the new item
-                    #   estimate:  is the same estimate as the current tree item estimate
-                    titem = Tree_Node()
-                    titem.index = iitem.index
-                    # since the right side is checkd 1st in this if, it will have priority over the left side
-                    if self.lifo[0].right == None:
-                        titem.value = self.lifo[0].value+iitem.value
-                        titem.room = self.lifo[0].room-iitem.weight
-                        titem.estimate = self.lifo[0].estimate
-                        self.lifo[0].right = titem
-                    else:
-                        titem.value = self.lifo[0].value
-                        titem.room = self.lifo[0].room
-                        titem.estimate = self.lifo[0].estimate-iitem.value
-                        self.lifo[0].left = titem
-                    if titem.value > self.best_value:
-                        self.best_value = titem.value
-                    # insert in front
-                    self.lifo.insert(0,titem)
-                # if it does not fit anymore, get the last item of the lifo and go to the left
-                else:
-                    self.lifo[0].right = -1
+                titem.value = self.lifo[0].value+iitem.value
+                titem.room = self.lifo[0].room-iitem.weight
+                titem.estimate = self.lifo[0].estimate
+                self.lifo[0].right = titem
             else:
-                # dead end, go to the lifo to continue from there
-                self.lifo.pop()
-
+                titem.value = self.lifo[0].value
+                titem.room = self.lifo[0].room
+                titem.estimate = self.lifo[0].estimate-iitem.value
+                self.lifo[0].left = titem
+            # if the new item fits in the bag and its estimate is better than the best value found so far,
+            # then the new node is accepted into the tree
+            if titem.room >=0  and titem.estimate > self.best_value:
+                # Is the newly accepted node has a better value than the best value found so far ?
+                if titem.value > self.best_value:
+                    self.best_value = titem.value
+                # insert the new item into in front of the LIFO
+                self.lifo.insert(0,titem)
+            # if it does not fit anymore, ignore the new node
+            else:
+                # if the left is still None, then the current node was assigned to the right
+                if self.lifo[0].left == None:
+                    self.lifo[0].right = -1
+                else:
+                    self.lifo[0].left = -1
 
             iter += 1
 
@@ -120,10 +130,10 @@ def solve_it(input_data):
 
     items = []
 
-    for i in range(1, item_count+1):
-        line = lines[i]
+    for i in range(item_count):
+        line = lines[i+1]
         parts = line.split()
-        items.append(Item(i-1, int(parts[0]), int(parts[1])))
+        items.append(Input_Item(i, int(parts[0]), int(parts[1])))
 
     # a trivial algorithm for filling the knapsack
     # it takes items in-order until the knapsack is full
@@ -133,9 +143,9 @@ def solve_it(input_data):
 
     # items sorted in rever order of value/weight ratio
     items = sorted(items, key=lambda x: float(x.value/float(x.weight)))[::-1]
-    print (items)
+    print (", ".join(str(i) for i in items))
     tree = Tree(items, capacity)
-    tree.transverse(30)
+    #tree.transverse(30)
 
 
 
