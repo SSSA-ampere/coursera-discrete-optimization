@@ -17,6 +17,8 @@ class Tree_Node:
     def __init__(self):
         self.left = None
         self.right = None
+        # depth of the node in the tree
+        self.tree_depth = 0
         # input data index
         self.index = 0
         # value obtained
@@ -27,13 +29,8 @@ class Tree_Node:
         self.estimate = 0
 
     def __str__(self):
-        return '<%d, %d, %d, %d>' % (self.index, self.value, self.room, self.estimate)
+        return '<%d, %d, %d, %d, %d>' % (self.tree_depth, self.index, self.value, self.room, self.estimate)
 
-    def fillItem(self, item, estimate):
-        self.index = item.index
-        self.value = item.value
-        self.room  = item.weight
-        self.estimate = estimate
 
 class Tree:
     #def __init__(self, items, sort_items_function, capacity):
@@ -59,6 +56,7 @@ class Tree:
     def transverse(self, estimate):
         # set the trunk 
         self.trunk = Tree_Node()
+        self.trunk.tree_depth = 0
         self.trunk.index = 0
         self.trunk.value = 0
         self.trunk.room = self.k
@@ -73,8 +71,12 @@ class Tree:
         # repeat until there is no item left or lifo is empty
         while (len(self.lifo) > 0):
             
+            if self.lifo[0].left != None and self.lifo[0].right != None:
+                # this node has been visited in both sides. drop it
+                self.lifo.pop(0)
+                continue
             # add another branch to the tree based on the next item of the input list
-            iitem = self.items[self.lifo[0].index]
+            iitem = self.items[self.lifo[0].tree_depth]
             # if there is enough capacity and 
             
             # then accept the item.
@@ -84,6 +86,7 @@ class Tree:
             #   estimate:  is the same estimate as the current tree item estimate
             titem = Tree_Node()
             titem.index = iitem.index
+            titem.tree_depth = self.lifo[0].tree_depth+1
             # since the right side is checkd 1st in this if, it will have priority over the left side
             if self.lifo[0].right == None:
                 titem.value = self.lifo[0].value+iitem.value
@@ -110,6 +113,8 @@ class Tree:
                     self.lifo[0].right = -1
                 else:
                     self.lifo[0].left = -1
+                    # both sides have been tested, then 
+                    self.lifo.pop(0)
 
             iter += 1
 
@@ -145,7 +150,7 @@ def solve_it(input_data):
     items = sorted(items, key=lambda x: float(x.value/float(x.weight)))[::-1]
     print (", ".join(str(i) for i in items))
     tree = Tree(items, capacity)
-    #tree.transverse(30)
+    tree.transverse(30)
 
 
 
