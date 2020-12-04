@@ -67,7 +67,7 @@ class Tree:
         # initialize the lifo
         self.lifo.append(self.trunk)
         # temporary solution
-        temp_solution = [0]*len(self.items)
+        temp_solution = [-1]*len(self.items)
 
         iter = 0
         # repeat until there is no item left or lifo is empty
@@ -75,6 +75,7 @@ class Tree:
             
             if self.lifo[0].left != None and self.lifo[0].right != None:
                 # this node has been visited in both sides. drop it
+                temp_solution[self.lifo[0].tree_depth] = -1
                 self.lifo.pop(0)
                 continue
             # add another branch to the tree based on the next item of the input list
@@ -105,9 +106,9 @@ class Tree:
             # then the new node is accepted into the tree
             if titem.room >=0  and titem.estimate > self.best_value:
                 if self.lifo[0].left == None:
-                    temp_solution[self.lifo[0].tree_depth] = 1
+                    temp_solution[self.lifo[0].tree_depth] = titem.index
                 else:
-                    temp_solution[self.lifo[0].tree_depth] = 0
+                    temp_solution[self.lifo[0].tree_depth] = -1
 
                 # Is the newly accepted node has a better value than the best value found so far ?
                 if titem.value > self.best_value:
@@ -122,6 +123,7 @@ class Tree:
                     self.lifo[0].right = -1
                 else:
                     self.lifo[0].left = -1
+                    temp_solution[self.lifo[0].tree_depth] = -1
                     # both sides have been tested, then 
                     self.lifo.pop(0)
 
@@ -162,6 +164,7 @@ def solve_it(input_data):
 
     items = []
     items_removed = 0
+    taken = [0]*item_count
 
     for i in range(item_count):
         line = lines[i+1]
@@ -191,8 +194,32 @@ def solve_it(input_data):
     print ("Best value is", tree.best_value, "for items", tree.solution)
     print ("Solution found in iteration %d out of %d. %.2f%% of the tree transversed." % (iters,  max_tree_size(item_count), float(iters) / float(max_tree_size(item_count))))
 
+    sum_value = 0
+    sum_weight = 0
+    print ("")
+    print("_______________________________")
+    print(' {:10s} {:10s} {:10s} '.format("Index","Value","Weight"))
+    print("_______________________________")
+    for i in tree.solution:
+        if i >= 0:
+            for j in items:
+                if i == j.index:
+                    print(' {:5d} {:10d} {:10d} '.format(j.index, j.value, j.weight))
+                    sum_value += j.value
+                    sum_weight += j.weight
+    print("_______________________________")
+    print(' {:16d} {:10d} '.format(sum_value, sum_weight))
+    print ("")
+
+    weight_slack = capacity - sum_weight
+    for j in items:
+        if j.weight < weight_slack:
+            print ("OOOOPS: With weight slack of ", weight_slack, "item", j, "should have been selected. check your algorithm!!!")
+
     # copy data to the expected output variables
-    taken = tree.solution.copy()
+    for i in tree.solution:
+        if i >=0:
+            taken[i] = 1
     value = tree.best_value
 
    
