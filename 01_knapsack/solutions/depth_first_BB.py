@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import math
+
 class Input_Item:
     def __init__(self, index, value, weight):
         # input data index
@@ -46,7 +48,7 @@ class Tree:
         self.k = capacity
         # best value so far
         self.best_value = 0
-        #self.best_index = 0
+        self.solution = [0]*len(items)
         # items in each tree node
         #self.treeItem = namedtuple("Item", ['index', 'value', 'room', 'estimate'])
     
@@ -103,6 +105,7 @@ class Tree:
             if titem.room >=0  and titem.estimate > self.best_value:
                 # Is the newly accepted node has a better value than the best value found so far ?
                 if titem.value > self.best_value:
+                    self.solution[self.lifo[0].tree_depth] = 1
                     self.best_value = titem.value
                 # insert the new item into in front of the LIFO
                 self.lifo.insert(0,titem)
@@ -113,14 +116,18 @@ class Tree:
                     self.lifo[0].right = -1
                 else:
                     self.lifo[0].left = -1
+                    # undoing the solution assignment
+                    self.solution[self.lifo[0].tree_depth] = 0
                     # both sides have been tested, then 
                     self.lifo.pop(0)
 
             iter += 1
+        return iter
 
         
 
-
+def max_tree_size(N):
+    return 2**N - 1
 
 
 def solve_it(input_data):
@@ -150,9 +157,10 @@ def solve_it(input_data):
     items = sorted(items, key=lambda x: float(x.value/float(x.weight)))[::-1]
     print (", ".join(str(i) for i in items))
     tree = Tree(items, capacity)
-    tree.transverse(30)
+    iters = tree.transverse(30)
 
-
+    print ("Best value is", tree.best_value, "for items", tree.solution)
+    print ("Solution found in iteration %d out of %d. %.2f%% of the tree transversed." % (iters,  max_tree_size(len(items)), float(iters) / float(max_tree_size(len(items)))))
 
     for item in items:
         if weight + item.weight <= capacity:
