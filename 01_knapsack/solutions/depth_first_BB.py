@@ -213,7 +213,7 @@ def solve_it(input_data):
 
     weight_slack = capacity - sum_weight
     for j in items:
-        if j.weight < weight_slack:
+        if j.weight <= weight_slack:
             print ("OOOOPS: With weight slack of ", weight_slack, "item", j, "should have been selected. check your algorithm!!!")
 
     # copy data to the expected output variables
