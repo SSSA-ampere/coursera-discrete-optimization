@@ -161,14 +161,21 @@ def solve_it(input_data):
     capacity = int(firstLine[1])
 
     items = []
+    items_removed = 0
 
     for i in range(item_count):
         line = lines[i+1]
         parts = line.split()
-        items.append(Input_Item(i, int(parts[0]), int(parts[1])))
+        # drop the single items that are bigger than the capacity
+        # no need to insert these items in the search
+        if int(parts[1]) <= capacity:
+            items.append(Input_Item(i, int(parts[0]), int(parts[1])))
+        else:
+            items_removed += 1
 
+    item_count -= items_removed
 
-    # items sorted in rever order of value/weight ratio
+    # items sorted in reverse order of value/weight ratio
     items = sorted(items, key=lambda x: float(x.value/float(x.weight)))[::-1]
     # apply the linear_relaxation to get the BB estimate
     estimate = linear_relaxation(items,capacity)
