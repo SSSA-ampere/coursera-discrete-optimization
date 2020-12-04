@@ -66,8 +66,8 @@ class Tree:
         #self.trunk = self.treeItem(self.items[0].index, self.items[0].value, self.items[0].weight, estimate)
         # initialize the lifo
         self.lifo.append(self.trunk)
-        #self.lifo[0].value +=1
-        #print ("val:", self.trunk.value, self.lifo[0].value)
+        # temporary solution
+        temp_solution = [0]*len(self.items)
 
         iter = 0
         # repeat until there is no item left or lifo is empty
@@ -100,12 +100,18 @@ class Tree:
                 titem.room = self.lifo[0].room
                 titem.estimate = self.lifo[0].estimate-iitem.value
                 self.lifo[0].left = titem
+                
             # if the new item fits in the bag and its estimate is better than the best value found so far,
             # then the new node is accepted into the tree
             if titem.room >=0  and titem.estimate > self.best_value:
+                if self.lifo[0].left == None:
+                    temp_solution[self.lifo[0].tree_depth] = 1
+                else:
+                    temp_solution[self.lifo[0].tree_depth] = 0
+
                 # Is the newly accepted node has a better value than the best value found so far ?
                 if titem.value > self.best_value:
-                    self.solution[self.lifo[0].tree_depth] = 1
+                    self.solution = temp_solution.copy()
                     self.best_value = titem.value
                 # insert the new item into in front of the LIFO
                 self.lifo.insert(0,titem)
@@ -116,8 +122,6 @@ class Tree:
                     self.lifo[0].right = -1
                 else:
                     self.lifo[0].left = -1
-                    # undoing the solution assignment
-                    self.solution[self.lifo[0].tree_depth] = 0
                     # both sides have been tested, then 
                     self.lifo.pop(0)
 
