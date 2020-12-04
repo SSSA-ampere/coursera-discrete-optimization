@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
 import math
@@ -128,10 +128,26 @@ class Tree:
             iter += 1
         return iter
 
-        
-
 def max_tree_size(N):
     return 2**N - 1
+
+def linear_relaxation(items, capacity):
+    room = capacity
+    item = 0
+    estimate = 0.0
+    while room > 0 and item < len(items):
+        if room-items[item].weight >= 0:
+            room -= items[item].weight
+            estimate += items[item].value
+        else:
+            room = float(room) / float(items[item].weight)
+            estimate += float(room) * items[item].value
+            break
+        item +=1
+    return estimate
+        
+
+
 
 
 def solve_it(input_data):
@@ -151,27 +167,28 @@ def solve_it(input_data):
         parts = line.split()
         items.append(Input_Item(i, int(parts[0]), int(parts[1])))
 
-    # a trivial algorithm for filling the knapsack
-    # it takes items in-order until the knapsack is full
-    value = 0
-    weight = 0
-    taken = [0]*len(items)
 
     # items sorted in rever order of value/weight ratio
     items = sorted(items, key=lambda x: float(x.value/float(x.weight)))[::-1]
+    # apply the linear_relaxation to get the BB estimate
+    estimate = linear_relaxation(items,capacity)
+
+    print ("Capacity %d, #items %d, estimate %.4f" % (capacity, item_count, estimate))
     print (", ".join(str(i) for i in items))
+
+    #searching ...
     tree = Tree(items, capacity)
-    iters = tree.transverse(30)
+    iters = tree.transverse(estimate)
 
+    # solution
     print ("Best value is", tree.best_value, "for items", tree.solution)
-    print ("Solution found in iteration %d out of %d. %.2f%% of the tree transversed." % (iters,  max_tree_size(len(items)), float(iters) / float(max_tree_size(len(items)))))
+    print ("Solution found in iteration %d out of %d. %.2f%% of the tree transversed." % (iters,  max_tree_size(item_count), float(iters) / float(max_tree_size(item_count))))
 
-    for item in items:
-        if weight + item.weight <= capacity:
-            taken[item.index] = 1
-            value += item.value
-            weight += item.weight
-    
+    # copy data to the expected output variables
+    taken = tree.solution.copy()
+    value = tree.best_value
+
+   
     # prepare the solution in the specified output format
     output_data = str(value) + ' ' + str(0) + '\n'
     output_data += ' '.join(map(str, taken))
