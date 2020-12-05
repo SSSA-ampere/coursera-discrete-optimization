@@ -1,4 +1,4 @@
-# Knapsack solution
+# Knapsack Solutions
 
 This folder has the following solutions to the Knapsack challenge:
 
