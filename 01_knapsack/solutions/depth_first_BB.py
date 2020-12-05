@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import math
+#import utils.tree_plot
 
 class Input_Item:
     def __init__(self, index, value, weight):
@@ -19,6 +20,8 @@ class Tree_Node:
     def __init__(self):
         self.left = None
         self.right = None
+        # unique node tree ID. used for plotting
+        self.nodeid = 0
         # depth of the node in the tree
         self.tree_depth = 0
         # input data index
@@ -49,8 +52,8 @@ class Tree:
         # best value so far
         self.best_value = 0
         self.solution = [0]*len(items)
-        # items in each tree node
-        #self.treeItem = namedtuple("Item", ['index', 'value', 'room', 'estimate'])
+        # list of edges used for plotting the tree
+        self.edge_list = []
     
     def __newItem__(self, item, estimate):
         return self.treeItem(item.index, item.value, item.weight, estimate)
@@ -60,6 +63,7 @@ class Tree:
         self.trunk = Tree_Node()
         self.trunk.tree_depth = 0
         self.trunk.index = 0
+        self.trunk.nodeid = 0
         self.trunk.value = 0
         self.trunk.room = self.k
         self.trunk.estimate = estimate
@@ -68,6 +72,10 @@ class Tree:
         self.lifo.append(self.trunk)
         # temporary solution
         temp_solution = [-1]*len(self.items)
+        # node id used for plotting
+        last_new_node = 0
+        # points to the current input item of the input list
+        input_idx = 0
 
         iter = 0
         # repeat until there is no item left or lifo is empty
@@ -78,18 +86,19 @@ class Tree:
                 temp_solution[self.lifo[0].tree_depth] = -1
                 self.lifo.pop(0)
                 continue
+            if input_idx >=  len(self.items):
+                # return to the last valid value
+                input_idx = self.lifo[0].tree_depth -1
+                # tested all the inputs and none of them were good. Then, give it up and roolback
+                if self.lifo[0].right == None:
+                    self.lifo[0].right = -1
+            # never gets negative
+            input_idx = max(0,input_idx)
             # add another branch to the tree based on the next item of the input list
-            iitem = self.items[self.lifo[0].tree_depth]
-            # if there is enough capacity and 
-            
-            # then accept the item.
-            # the tree item (titem) has:
-            #   value: the current tree item + the next new item
-            #   room: is the current tree item room - the room required by the new item
-            #   estimate:  is the same estimate as the current tree item estimate
+            iitem = self.items[input_idx]
             titem = Tree_Node()
             titem.index = iitem.index
-            titem.tree_depth = self.lifo[0].tree_depth+1
+            titem.tree_depth = input_idx+1
             # since the right side is checkd 1st in this if, it will have priority over the left side
             if self.lifo[0].right == None:
                 titem.value = self.lifo[0].value+iitem.value
@@ -102,20 +111,32 @@ class Tree:
                 titem.estimate = self.lifo[0].estimate-iitem.value
                 self.lifo[0].left = titem
                 
-            # if the new item fits in the bag and its estimate is better than the best value found so far,
-            # then the new node is accepted into the tree
-            if titem.room >=0  and titem.estimate > self.best_value:
-                if self.lifo[0].left == None:
-                    temp_solution[self.lifo[0].tree_depth] = titem.index
-                else:
-                    temp_solution[self.lifo[0].tree_depth] = -1
+            
+            # if the estimate is better than the best value found so far,
+            # then there is no need to continue searching this branch. 
+            if titem.estimate > self.best_value:
+                # if the new item fits in the bag, then it can be included into the tree
+                if titem.room >=0:
+                    if self.lifo[0].left == None:
+                        temp_solution[self.lifo[0].tree_depth] = titem.index
+                    else:
+                        temp_solution[self.lifo[0].tree_depth] = -1
 
-                # Is the newly accepted node has a better value than the best value found so far ?
-                if titem.value > self.best_value:
-                    self.solution = temp_solution.copy()
-                    self.best_value = titem.value
-                # insert the new item into in front of the LIFO
-                self.lifo.insert(0,titem)
+                    # Is the newly accepted node has a better value than the best value found so far ?
+                    if titem.value > self.best_value:
+                        self.solution = temp_solution.copy()
+                        self.best_value = titem.value
+                    # a new node is being created, then it needs a new ID
+                    last_new_node +=1
+                    titem.nodeid = last_new_node
+                    edge = (self.lifo[0].nodeid, titem.nodeid)
+                    self.edge_list.append(edge)
+                    # insert the new item into in front of the LIFO
+                    input_idx +=1
+                    self.lifo.insert(0,titem)
+                else:
+                    input_idx +=1
+                    self.lifo[0].right = None
             # if it does not fit anymore, ignore the new node
             else:
                 # if the left is still None, then the current node was assigned to the right
@@ -126,6 +147,8 @@ class Tree:
                     temp_solution[self.lifo[0].tree_depth] = -1
                     # both sides have been tested, then 
                     self.lifo.pop(0)
+                    if len(self.lifo) > 0 :
+                        input_idx = self.lifo[0].tree_depth -1
 
             iter += 1
         return iter
@@ -190,9 +213,13 @@ def solve_it(input_data):
     tree = Tree(items, capacity)
     iters = tree.transverse(estimate)
 
+    #print the edge list
+    print (tree.edge_list)
+    print ("")
+
     # solution
     print ("Best value is", tree.best_value, "for items", tree.solution)
-    print ("Solution found in iteration %d out of %d. %.2f%% of the tree transversed." % (iters,  max_tree_size(item_count), float(iters) / float(max_tree_size(item_count))))
+    print ("Solution found in iteration %d out of %d. %.6f%% of the tree transversed." % (iters,  max_tree_size(item_count), float(iters) / float(max_tree_size(item_count))))
 
     sum_value = 0
     sum_weight = 0
