@@ -154,7 +154,7 @@ class Tree:
         return iter
 
 def max_tree_size(N):
-    return 2**N - 1
+    return 2**(N+1) - 1
 
 def linear_relaxation(items, capacity):
     room = capacity
