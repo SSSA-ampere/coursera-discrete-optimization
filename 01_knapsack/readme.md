@@ -49,3 +49,6 @@ $ snakeviz program.prof
 - https://github.com/uber/pyflame
 - https://github.com/Netflix/flamescope
 - https://github.com/jlfwong/speedscope
+- https://github.com/NERSC/timemory
+- http://pramodkumbhar.com/2017/04/summary-of-profiling-tools/
+
