@@ -1,7 +1,6 @@
 #!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
-import math
 
 # assign False to submit the solution
 debug = True
