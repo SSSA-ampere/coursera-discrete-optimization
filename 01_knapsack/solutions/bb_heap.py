@@ -69,6 +69,10 @@ class Heap:
         temp_solution = [-1]*len(self.items)
         # points to the current input item of the input list
         input_idx = 0
+        # to avoid calling len multiple times inside the main loop
+        items_lenght = len(self.items)
+        # extract the max heap size
+        max_heap = 0
 
         iter = 0
         # repeat until there is no item left or lifo is empty
@@ -79,7 +83,7 @@ class Heap:
                 temp_solution[self.lifo[0].heap_depth] = -1
                 self.lifo.pop(0)
                 continue
-            if input_idx >=  len(self.items):
+            if input_idx >=  items_lenght:
                 # return to the last valid value
                 input_idx = self.lifo[0].heap_depth -1
                 # tested all the inputs and none of them were good. Then, give it up and roolback
@@ -121,6 +125,9 @@ class Heap:
                     # insert the new item into in front of the LIFO
                     input_idx +=1
                     self.lifo.insert(0,titem)
+                    # gather performance stats
+                    if max_heap < len(self.lifo):
+                        max_heap = len(self.lifo)
                 else:
                     input_idx +=1
                     self.lifo[0].right = None
@@ -138,7 +145,7 @@ class Heap:
                         input_idx = self.lifo[0].heap_depth -1
 
             iter += 1
-        return iter
+        return (iter, max_heap)
 
 def max_tree_size(N):
     return 2**(N+1) - 1
@@ -223,13 +230,16 @@ def solve_it(input_data):
 
     #searching ...
     tree = Heap(items, capacity)
-    iters = tree.transverse(estimate)
+    (iters, max_heap) = tree.transverse(estimate)
 
     if debug:
         # solution
         #remove_minus1 = [i for i in tree.solution if i != -1] 
         #print ("Best value is", tree.best_value, "for items", remove_minus1)
         #print ("Solution found in iteration %d out of %d. %.6f%% of the tree transversed." % (iters,  max_tree_size(item_count), float(iters) / float(max_tree_size(item_count))))
+        print ("Performance metrics:")
+        print (" - #iterations: ", iters)
+        print (" - max heap size: ", max_heap)
         print ("Solution:")
         sum_weight = print_table(items,tree.solution)
         print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity))
