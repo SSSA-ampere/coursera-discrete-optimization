@@ -10,9 +10,10 @@ All solutions have a *debug* flag that can be turned on or off.
 
 # Usage
 
+```
 $ python solutions/bb_heap.py data/ks_1000_0
 $ $ python solutions/sorted_value_per_weight.py data/ks_1000_0
-
+```
 
 # Profiling
 
@@ -24,7 +25,9 @@ $ $ python solutions/sorted_value_per_weight.py data/ks_1000_0
 
 ### Running 
 
+```
 $ sudo perf record -F 99 -a -g -- python solutions/bb_heap.py data/ks_1000_0 | stackcollapse-perf.pl out.perf | flamegraph.pl --color=java --hash > example-perf.svg
+```
 
 ## Using SnakeViz
 
@@ -35,9 +38,10 @@ $ sudo perf record -F 99 -a -g -- python solutions/bb_heap.py data/ks_1000_0 | s
 
 ### Running 
 
+```
 $ python -m cProfile -o program.prof solutions/bb_heap.py data/ks_1000_0
 $ snakeviz program.prof
-
+```
 
 ## Other Profiling Options
 
