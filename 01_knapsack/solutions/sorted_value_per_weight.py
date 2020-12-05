@@ -5,7 +5,7 @@ from collections import namedtuple
 Item = namedtuple("Item", ['index', 'value', 'weight'])
 
 # assign False to submit the solution
-debug = True
+debug = False
 
 def linear_relaxation(items, capacity):
     room = capacity
@@ -38,6 +38,8 @@ def print_table(items, taken):
     print("_______________________________")
     print(' {:16d} {:10d} '.format(sum_value, sum_weight))
     print ("")
+
+    return sum_weight
 
 
 def solve_it(input_data):
@@ -89,10 +91,17 @@ def solve_it(input_data):
         print ("")
         estimate = linear_relaxation(items,capacity)
         print ("Estimated value: %.2f" % (estimate))
-        print (", ".join(str(i) for i in items))
+        #print (", ".join(str(i) for i in items))
         print ("")
         print ("Solution:")
-        print_table(items, taken_debug)
+        sum_weight = print_table(items, taken_debug)
+        print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity))
+        weight_slack = capacity - sum_weight
+        idx=0
+        for j in items:
+            if taken_debug[idx] == 0 and j.weight <= weight_slack:
+                print ("OOOOPS: With weight slack of", weight_slack, ", item", j, "with weight", items[j].weight, "should have been selected. check your algorithm!!!")
+            idx +=1
 
 
     # prepare the solution in the specified output format
