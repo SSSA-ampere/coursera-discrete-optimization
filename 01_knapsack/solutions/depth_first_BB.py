@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import math
-#import utils.tree_plot
+import tree_plot as t
 
 class Input_Item:
     def __init__(self, index, value, weight):
@@ -57,6 +57,31 @@ class Tree:
     
     def __newItem__(self, item, estimate):
         return self.treeItem(item.index, item.value, item.weight, estimate)
+
+    def transverse2(self):
+        heap = []
+        heap.append(self.trunk)
+        info = []
+        info.append((heap[0].index,heap[0].value,heap[0].room,heap[0].estimate))
+        while(len(heap)>0):
+            if heap[0].right != -1:
+                next = heap[0].right
+                heap[0].right = -1
+                heap.insert(0,next)
+            elif heap[0].left != -1:
+                next = heap[0].left
+                heap[0].left = -1
+                heap.insert(0,next)
+            else:
+                heap.pop(0)
+                continue
+            info.append((heap[0].index,heap[0].value,heap[0].room,heap[0].estimate))
+
+        return info
+
+
+
+
 
     def transverse(self, estimate):
         # set the trunk 
@@ -216,6 +241,12 @@ def solve_it(input_data):
     #print the edge list
     print (tree.edge_list)
     print ("")
+
+    plot_labels = tree.transverse2()
+    print (plot_labels)
+
+    # send data for plotting
+    t.plot(plot_labels,tree.edge_list)
 
     # solution
     print ("Best value is", tree.best_value, "for items", tree.solution)
