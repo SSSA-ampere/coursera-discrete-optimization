@@ -86,8 +86,8 @@ class Heap:
         iter = 0
         # repeat until the LIFO is empty
         while (len(self.lifo) > 0):
-            if iter >= 20000:
-                print ("AM I STUCK ?!?!?")
+            #if iter >= 20000:
+            #    print ("AM I STUCK ?!?!?")
             if self.lifo[0].left != None and self.lifo[0].right != None:
                 # this node has been visited in both sides. drop it
                 temp_solution[self.lifo[0].heap_depth] = -1
