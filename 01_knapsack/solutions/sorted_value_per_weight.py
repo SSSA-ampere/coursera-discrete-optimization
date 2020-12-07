@@ -95,11 +95,11 @@ def solve_it(input_data):
         print ("")
         print ("Solution:")
         sum_weight = print_table(items, taken_debug)
-        print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity))
+        print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity*100.0))
         weight_slack = capacity - sum_weight
         idx=0
         for j in items:
-            if taken_debug[idx] == 0 and j.weight <= weight_slack:
+            if taken_debug[idx] == 0 and j.weight <= weight_slack and j.value > 0 :
                 print ("OOOOPS: With weight slack of", weight_slack, ", item", j, "with weight", items[j].weight, "should have been selected. check your algorithm!!!")
             idx +=1
 
