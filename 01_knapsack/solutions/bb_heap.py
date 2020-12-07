@@ -108,10 +108,15 @@ class Heap:
                 self.lifo[0].left = 1
             
             # if the estimate is better than the best value found so far,
-            # then there is no need to continue searching this branch. 
+            # then it is necessary to continue the search. 
             if titem.estimate > self.best_value:
                 # if the new item fits in the bag, then it can be included into the tree
                 if titem.room >=0:
+                    # the correcto would be to put the min after
+                    # titem.heap_depth = input_idx+1. However, most titem are ignored.
+                    # here is the place where titem is not ignored and it is saved.
+                    # then, it is safe to put the min here incurring in less overhead
+                    titem.heap_depth = min(titem.heap_depth,items_lenght-1)
                     if self.lifo[0].left == None:
                         temp_solution[self.lifo[0].heap_depth] = titem.index
                     else:
@@ -127,10 +132,12 @@ class Heap:
                     # gather performance stats
                     if max_heap < len(self.lifo):
                         max_heap = len(self.lifo)
+                # if it does not fit anymore, ignore the new node
                 else:
                     input_idx +=1
                     self.lifo[0].right = None
-            # if it does not fit anymore, ignore the new node
+            # if the estimate is worst than the best value found so far,
+            # then there is no need to continue searching this branch. 
             else:
                 # if the left is still None, then the current node was assigned to the right
                 if self.lifo[0].left == None:
@@ -241,7 +248,7 @@ def solve_it(input_data):
         print (" - max heap size: ", max_heap)
         print ("Solution:")
         sum_weight = print_table(items,tree.solution)
-        print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity))
+        print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity*100.0))
         weight_slack = capacity - sum_weight
         # create a list of indexes of all non selected items
         remove_minus1 = [i for i in tree.solution if i != -1] 
