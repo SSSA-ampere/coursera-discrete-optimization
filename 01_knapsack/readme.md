@@ -2,8 +2,8 @@
 
 This folder has the following solutions to the Knapsack challenge:
 
-- sorted_value_per_weight.py: extremely fast and simple heuristics that gives pretty good results with typically with more than 99% of knapsack occupation.
-- bb_heap.py: fast [Branch & Bound algorigthm](https://www.coursera.org/learn/discrete-optimization/lecture/66OlO/knapsack-5-relaxation-branch-and-bound) using a heap. Optimal results with very low memory usage. Still craching in ks_100_1, ks_400_0, ks_500_0, ks_10000_0.
+- sorted_value_per_weight.py: extremely fast (less than 0.04s) and simple heuristics that gives pretty good results with typically with more than 99.99% of knapsack occupation.
+- bb_heap.py: a reeealy fast (less than 0.1s) [Branch & Bound algorigthm](https://www.coursera.org/learn/discrete-optimization/lecture/66OlO/knapsack-5-relaxation-branch-and-bound) using a heap. Optimal results with very low memory usage (less than 20 nodes kept in memory!!!). 
 - bb_tree.py: Branch & Bound algorithm using a binary tree. Still under construction. It plots the search tree for debugging purposes.
 
 All solutions have a *debug* flag that can be turned on or off.

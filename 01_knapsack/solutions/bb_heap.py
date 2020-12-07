@@ -3,7 +3,7 @@
 
 
 # assign False to submit the solution
-debug = True
+debug = False
 
 class Input_Item:
     def __init__(self, index, value, weight):
@@ -247,9 +247,14 @@ def solve_it(input_data):
             # there are a couple of items with value zero. remove them because they dont 
             # help to improve the value metric
             if int(parts[0]) > 0:
+                if int(parts[1]) <= 0:
+                    print ("WOOHHH ! the list has a item with no weight !!!! it defies the laws of physics!!! ")
+                    sys.exit(0)
                 items.append(Input_Item(i, float(parts[0]), int(parts[1])))
                 # this is used only in debug mode
                 fake_solution.append(i)
+            # if some weight is zero, then assign a very small value to avoid zero div exception
+                
         else:
             items_removed += 1
 
