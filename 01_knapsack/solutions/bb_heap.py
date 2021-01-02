@@ -30,8 +30,7 @@ class Heap_Node:
 
         """        
         # left and right have values: None, -1, and 1.
-        # where None means not visited, -1 visited but without solution, 
-        # 1 means visited with possible solution
+        # where None means not visited, -1 visited but without solution, 1 already visited
         self.left = None
         self.right = None
         # depth of the node in the 'tree'
@@ -44,9 +43,17 @@ class Heap_Node:
         self.room  = 0
         # current estimate
         self.estimate = 0
+        # index to the fractioned item in self.items
+        self.slack_idx = 0
+        # e.g. if the slack item has weight 5, but only 3 was used, then slack_used is 3
+        self.slack_used = 0
+        # current taken itens
+        self.taken_itens = []
 
     def __str__(self):
-        return '<%d, %d, %d, %d, %.2f>' % (self.heap_depth, self.index, int(self.value), self.room, self.estimate)
+        return '<%d, %d, %d, %d, %.2f, %d, %d, %s>' % (self.heap_depth, self.index, 
+            int(self.value), self.room, self.estimate, self.slack_idx, self.slack_used,
+            str(self.taken_itens))
 
 
 class Heap:
@@ -56,98 +63,227 @@ class Heap:
         self.lifo = []
         # a sorted list of items 
         self.items = items
-        # capacity
-        self.k = capacity
+        self.item_len = len(items)
+        self.capacity = capacity
         # best value so far
         self.best_value = 0
         # holds a list with selected item indexes 
         self.solution = [0]*len(items)
+        # expansion size
+        self.iter = 0
+
+    def relaxation(self, cur_estimate, slack_idx, slack_used, weight):
+        """ Fractional item relaxation heuristic.
+
+        The explanation of the Fractional item relaxation heuristic in the video 'Knapsack 5 - relaxation, branch and bound',
+        SUCK ... a big time !!!!
+        In `this post <https://www.coursera.org/learn/discrete-optimization/discussions/weeks/2/threads/M30RzDnzEeew7Q7A7m3f-g/replies/OnqPNTqYEeerRhI_jX3yNA/comments/KrEW5z0xEee7bwpYS6iFWg>_` 
+        has a descent explanation about the 77 estimate than the Coursera video.
+        Also, the fractional heuristic is better explained in this `video <https://youtu.be/vb0juybGIKY?list=PL6KMWPQP_DM8t5pQmuLlarpmVc47DVXWd&t=264>_`.
+
+        Args:
+            cur_estimate (float): Current estimate.
+            slack_idx (int): Slack item index.
+            slack_used (int): The used slack.
+            weight (float): The available weight.
+
+        Returns:
+            float, int, int: The new estimate, the new slack item index, the used part of the slack item.
+        """
+
+        # debug check
+        #if slack_used < 1:
+        #    print ("BUUUUUUUG! slack must be >=1 ")
+        #    sys.exit(1)
+        # use the rest of the fractioned item
+        weight = weight - (self.items[slack_idx].weight - slack_used)
+        estimate = cur_estimate + (self.items[slack_idx].value * (float(slack_used) / float(self.items[slack_idx].weight)))
+        item = slack_idx + 1 
+        # keep reducing the weight until the next fraction item or the end of the list is found 
+        while weight > 0 and item < self.item_len:
+            if weight-self.items[item].weight >= 0:
+                # integral item found
+                weight -= self.items[item].weight
+                slack_used = self.items[item].weight
+                estimate += self.items[item].value
+            else:
+                # fractioned item found
+                slack_used = weight
+                weight = weight / float(self.items[item].weight)
+                estimate += weight * self.items[item].value
+                break
+            item +=1
+        return estimate, item, slack_used        
+
+
+        # room = float(capacity)
+        # item = 0
+        # slack_used = 0
+        # estimate = 0.0
+        # while room > 0 and item < len(items):
+        #     if room-items[item].weight >= 0:
+        #         room -= items[item].weight
+        #         slack_used = items[item].weight
+        #         estimate += items[item].value
+        #     else:
+        #         slack_used = room
+        #         room = room / float(items[item].weight)
+        #         estimate += room * items[item].value
+        #         break
+        #     item +=1
+        # return estimate,item,slack_used
+
+    def linear_relaxation(self, items, capacity):
+        """ Compute a upper bound for the cost.
         
+        It assumes that the items can be partitioned (fractioned).
+        The slack item is the item which is fractioned.
+
+        Args:
+            items ([Input_Item]): List of input items.
+            capacity (int): Knapsack capacity.
+
+        Returns:
+            float, int, int: A tupple with : the estimated cost, the index of the slack item.
+        """
+
+        room = float(capacity)
+        item = 0
+        slack_used = 0
+        estimate = 0.0
+        fractional = False
+        # I think that this condition cen be removed 'room > 0 and'
+        while room > 0 and item < len(items):
+            if room-items[item].weight >= 0:
+                room -= items[item].weight
+                slack_used = items[item].weight
+                estimate += items[item].value
+            else:
+                slack_used = room
+                room = room / float(items[item].weight)
+                estimate += room * items[item].value
+                fractional = True
+                break
+            item +=1
+        if not fractional:
+            item -= 1
+        return estimate,item,slack_used
     
-    def transverse(self, estimate):
+    def transverse(self, estimate, slack_idx, slack_used):
         # set the initial node for heap searching
         initial = Heap_Node()
         initial.heap_depth = 0
         initial.index = 0
         initial.value = 0
-        initial.room = self.k
+        initial.room = self.capacity
         initial.estimate = estimate
+        initial.slack_idx = slack_idx
+        initial.slack_used = slack_used
+        initial.taken_itens = self.items[:]
         # initialize the lifo
         self.lifo.append(initial)
         # temporary solution
-        temp_solution = [-1]*len(self.items)
+        #temp_solution = [-1]*len(self.items)
         # points to the current input item of the input list
         input_idx = 0
         # to avoid calling len multiple times inside the main loop
         items_lenght = len(self.items)
         # extract the max heap size. Used as a kind of memory used indicator
         max_heap = 0
-        # used as a kind of performance metric
+        # used as a kind of performance metric. number of expansions in the search
         iter = 0
         # repeat until the LIFO is empty
         while (len(self.lifo) > 0):
             #if iter >= 20000:
             #    print ("AM I STUCK ?!?!?")
-            if self.lifo[0].left != None and self.lifo[0].right != None:
-                # this node has been visited in both sides. drop it
-                temp_solution[self.lifo[0].heap_depth] = -1
-                self.lifo.pop(0)
-                continue
-            if input_idx >=  items_lenght:
-                # reaching the last item to be tested. return to the last valid value to continue the search
-                input_idx = self.lifo[0].heap_depth -1
-                # tested all the inputs and none of them were good. Then, give it up and roolback
-                if self.lifo[0].right == None:
-                    self.lifo[0].right = -1
+            #if self.lifo[0].left != None and self.lifo[0].right != None:
+            #    # this node has been visited in both sides. drop it
+            #    temp_solution[self.lifo[0].heap_depth] = -1
+            #    self.lifo.pop(0)
+            #    continue
+            #if input_idx >=  items_lenght:
+            #    # reaching the last item to be tested. return to the last valid value to continue the search
+            #    input_idx = self.lifo[0].heap_depth -1
+            #    # tested all the inputs and none of them were good. Then, give it up and roolback
+            #    if self.lifo[0].right == None:
+            #        self.lifo[0].right = -1
             # never gets negative
-            input_idx = max(0,input_idx)
+            #input_idx = max(0,input_idx)
+            input_idx = self.lifo[0].heap_depth
             # add another branch to the search based on the next item of the input list
             iitem = self.items[input_idx]
             titem = Heap_Node()
             titem.index = iitem.index
             # this can potentially leak the input list, but this is fixed with the 'min' few line below
             titem.heap_depth = input_idx+1
-            # since the right side is checkd 1st in this if, it will have priority over the left side
+            titem.taken_itens = self.lifo[0].taken_itens[:]
+            # since the right side is checked 1st in this if, it will have priority over the left side
             if self.lifo[0].right == None:
                 titem.value = self.lifo[0].value+iitem.value
                 titem.room = self.lifo[0].room-iitem.weight
                 titem.estimate = self.lifo[0].estimate
+                titem.slack_idx  = self.lifo[0].slack_idx
+                titem.slack_used = self.lifo[0].slack_used
                 self.lifo[0].right = 1
             else:
                 titem.value = self.lifo[0].value
                 titem.room = self.lifo[0].room
-                titem.estimate = self.lifo[0].estimate-iitem.value
+                #new_estimate = self.lifo[0].estimate-iitem.value
+                # when taking the left side, the item 'iitem' must be removed.
+                # Then, find the item and delete it
+                bug = True
+                for idx, item  in enumerate(titem.taken_itens):
+                    if item.index == iitem.index:
+                        del (titem.taken_itens[idx])
+                        bug = False
+                        break
+                if bug:
+                    print ("MEEEEEGA PAU ! iitem not found")
+                    print ('IITEM:')
+                    print (iitem)
+                    print ('TITEM:')
+                    print (titem)
+                    sys.exit(1)
+                titem.estimate, titem.slack_idx, titem.slack_used =  self.linear_relaxation(titem.taken_itens,self.capacity)
+                # titem.estimate, titem.slack_idx, titem.slack_used =  self.relaxation( 
+                #         new_estimate, 
+                #         self.lifo[0].slack_idx, 
+                #         self.lifo[0].slack_used, 
+                #         iitem.weight)
+
+                #titem.estimate = self.lifo[0].estimate-iitem.value
                 self.lifo[0].left = 1
             
             # if the estimate is better than the best value found so far,
             # then it is necessary to continue the search. 
-            if titem.estimate > self.best_value:
+            if titem.estimate > self.best_value and titem.room >=0:
                 # if the new item fits in the bag, then it can be included into the tree
-                if titem.room >=0:
+                #if titem.room >=0:
                     # the correct would be to put the min after
                     # titem.heap_depth = input_idx+1. However, most titem are ignored.
                     # here is the place where titem is not ignored and it is saved.
                     # then, it is safe to put the min here incurring in less overhead
                     titem.heap_depth = min(titem.heap_depth,items_lenght-1)
-                    if self.lifo[0].left == None:
-                        temp_solution[self.lifo[0].heap_depth] = titem.index
-                    else:
-                        temp_solution[self.lifo[0].heap_depth] = -1
+                    #if self.lifo[0].left == None:
+                    #    temp_solution[self.lifo[0].heap_depth] = titem.index
+                    #else:
+                    #    temp_solution[self.lifo[0].heap_depth] = -1
 
+                    # a solution is only found at the 'leaf' of the fake tree
                     # Is the newly accepted node has a better value than the best value found so far ?
-                    if titem.value > self.best_value:
-                        self.solution = temp_solution.copy()
+                    if input_idx == items_lenght-1 and titem.value > self.best_value:
+                        self.solution = titem.taken_itens[:]
                         self.best_value = titem.value
-                    # insert the new item into in front of the LIFO
-                    input_idx +=1
-                    self.lifo.insert(0,titem)
+                    else:
+                        # insert the new item into in front of the LIFO
+                        self.lifo.insert(0,titem)
                     # gather performance stats
                     if max_heap < len(self.lifo):
                         max_heap = len(self.lifo)
                 # if it does not fit anymore, ignore the new node, but continue the search in this branch
-                else:
-                    input_idx +=1
-                    self.lifo[0].right = None
+                #else:
+                    #input_idx +=1
+                    #self.lifo[0].right = None
             # if the estimate is worst than the best value found so far,
             # then there is no need to continue searching this branch. 
             else:
@@ -157,14 +293,18 @@ class Heap:
                     self.lifo[0].right = -1
                 else:
                     self.lifo[0].left = -1
-                    temp_solution[self.lifo[0].heap_depth] = -1
+                    #temp_solution[self.lifo[0].heap_depth] = -1
                     # both sides have been tested, then drop this node from the LIFO
-                    self.lifo.pop(0)
-                    if len(self.lifo) > 0 :
-                        input_idx = self.lifo[0].heap_depth -1
+                    #self.lifo.pop(0)
+                    #if len(self.lifo) > 0 :
+                    #    input_idx = self.lifo[0].heap_depth -1
 
+            # this node has been visited in both sides. drop it until there is a node with a path not visited
+            while len(self.lifo) > 0 and self.lifo[0].left != None and self.lifo[0].right != None:
+                #temp_solution[self.lifo[0].heap_depth] = -1
+                self.lifo.pop(0)
             iter += 1
-        return (iter, max_heap)
+        self.iter = iter
 
 def max_tree_size(N):
     """ Calculate the max size of a tree.
@@ -177,45 +317,19 @@ def max_tree_size(N):
     """
     return 2**(N+1) - 1
 
-def linear_relaxation(items, capacity):
-    """ Compute a upper bound for the cost.
-    
-    It assumes that the items can be partitioned (fractioned).
 
-    Args:
-        items ([Input_Item]): List of input items.
-        capacity (int): Knapsack capacity.
-
-    Returns:
-        float: The estimated cost.
-    """
-
-    room = float(capacity)
-    item = 0
-    estimate = 0.0
-    while room > 0 and item < len(items):
-        if room-items[item].weight >= 0:
-            room -= items[item].weight
-            estimate += items[item].value
-        else:
-            room = room / float(items[item].weight)
-            estimate += room * items[item].value
-            break
-        item +=1
-    return estimate
         
 
-def print_table(items, solution):
+def print_table(solution):
     sum_value = 0.0
     sum_weight = 0
     print("_______________________________")
     print(' {:10s} {:10s} {:10s} '.format("Index","Value","Weight"))
     print("_______________________________")
-    for i in items:
-        if i.index in solution:
-            print(' {:5d} {:10d} {:10d} '.format(i.index, int(i.value), i.weight))
-            sum_value += i.value
-            sum_weight += i.weight
+    for i in solution:
+        print(' {:5d} {:10d} {:10d} '.format(i.index, int(i.value), i.weight))
+        sum_value += i.value
+        sum_weight += i.weight
     print("_______________________________")
     print(' {:16d} {:10d} '.format(int(sum_value), sum_weight))
     print ("") 
@@ -252,7 +366,7 @@ def solve_it(input_data):
                     sys.exit(0)
                 items.append(Input_Item(i, float(parts[0]), int(parts[1])))
                 # this is used only in debug mode
-                fake_solution.append(i)
+                #fake_solution.append(i)
             # if some weight is zero, then assign a very small value to avoid zero div exception
                 
         else:
@@ -263,20 +377,19 @@ def solve_it(input_data):
     if debug:
         print ("")
         print ("Input:")
-        print_table(items,fake_solution)
+        print_table(items)
 
     # items sorted in reverse order of value/weight ratio
     items = sorted(items, key=lambda x: float(x.value/float(x.weight)))[::-1]
-    # apply the linear_relaxation to get the BB estimate
-    estimate = linear_relaxation(items,capacity)
-
-    if debug:
-        print ("Capacity: %d, #items: %d, estimated value: %.4f" % (capacity, item_count, estimate))
-        #print (", ".join(str(i) for i in items))
 
     #searching ...
     tree = Heap(items, capacity)
-    (iters, max_heap) = tree.transverse(estimate)
+    # apply the linear_relaxation to get the BB estimate
+    estimate, slack_idx, slack_used = tree.linear_relaxation(items,capacity)
+    if debug:
+        print ("Capacity: %d, #items: %d, estimated value: %.4f" % (capacity, item_count, estimate))
+        #print (", ".join(str(i) for i in items))
+    tree.transverse(estimate, slack_idx, slack_used)
 
     if debug:
         # solution
@@ -284,10 +397,10 @@ def solve_it(input_data):
         #print ("Best value is", tree.best_value, "for items", remove_minus1)
         #print ("Solution found in iteration %d out of %d. %.6f%% of the tree transversed." % (iters,  max_tree_size(item_count), float(iters) / float(max_tree_size(item_count))))
         print ("Performance metrics:")
-        print (" - #iterations: ", iters)
-        print (" - max heap size: ", max_heap)
+        print (" - best value: ", tree.best_value)
+        print (" - #iterations: ", tree.iters)
         print ("Solution:")
-        sum_weight = print_table(items,tree.solution)
+        sum_weight = print_table(tree.solution)
         print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity*100.0))
         weight_slack = capacity - sum_weight
         # create a list of indexes of all non selected items
@@ -302,8 +415,7 @@ def solve_it(input_data):
 
     # copy data to the expected output variables
     for i in tree.solution:
-        if i >=0:
-            taken[i] = 1
+        taken[i.index] = 1
     value = tree.best_value
 
    
