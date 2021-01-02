@@ -3,7 +3,7 @@
 
 
 # assign False to submit the solution
-debug = False
+debug = True
 
 class Input_Item:
     def __init__(self, index, value, weight):
@@ -194,8 +194,9 @@ class Heap:
         iter = 0
         # repeat until the LIFO is empty
         while (len(self.lifo) > 0):
-            #if iter >= 20000:
-            #    print ("AM I STUCK ?!?!?")
+            if iter >= 1000:
+                print ("AM I STUCK ?!?!?")
+                #sys.exit(1)
             #if self.lifo[0].left != None and self.lifo[0].right != None:
             #    # this node has been visited in both sides. drop it
             #    temp_solution[self.lifo[0].heap_depth] = -1
@@ -231,6 +232,13 @@ class Heap:
                 #new_estimate = self.lifo[0].estimate-iitem.value
                 # when taking the left side, the item 'iitem' must be removed.
                 # Then, find the item and delete it
+                if len(titem.taken_itens)==0:
+                    print ("MEEEEEGA PAU ! empty taken_itens")
+                    print ('IITEM:')
+                    print (iitem)
+                    print ('TITEM:')
+                    print (titem)
+                    #sys.exit(1)
                 bug = True
                 for idx, item  in enumerate(titem.taken_itens):
                     if item.index == iitem.index:
@@ -277,9 +285,20 @@ class Heap:
                     else:
                         # insert the new item into in front of the LIFO
                         self.lifo.insert(0,titem)
-                    # gather performance stats
+                    # this is for debug only. the heap depth is not supposed to be > than the # of items
                     if max_heap < len(self.lifo):
-                        max_heap = len(self.lifo)
+                        if max_heap < items_lenght:
+                            max_heap = len(self.items)
+                        else:
+                            print ("MEEEEEGA PAU ! max_heap > len(self.items)")
+                            print ('IITEM:')
+                            print (iitem)
+                            print ('TITEM:')
+                            print (titem)
+                            sys.exit(1)
+
+
+
                 # if it does not fit anymore, ignore the new node, but continue the search in this branch
                 #else:
                     #input_idx +=1
@@ -324,14 +343,16 @@ def print_table(solution):
     sum_value = 0.0
     sum_weight = 0
     print("_______________________________")
-    print(' {:10s} {:10s} {:10s} '.format("Index","Value","Weight"))
+    print(' {:>11s} {:>10s} {:>10s} '.format("Index","Value","Weight"))
     print("_______________________________")
+    cnt=1
     for i in solution:
-        print(' {:5d} {:10d} {:10d} '.format(i.index, int(i.value), i.weight))
+        print(' {:5d} {:5d} {:10d} {:10d} '.format(cnt, i.index, int(i.value), i.weight))
         sum_value += i.value
         sum_weight += i.weight
+        cnt +=1
     print("_______________________________")
-    print(' {:16d} {:10d} '.format(int(sum_value), sum_weight))
+    print(' {:21d} {:10d} '.format(int(sum_value), sum_weight))
     print ("") 
     return sum_weight
 
@@ -381,6 +402,11 @@ def solve_it(input_data):
 
     # items sorted in reverse order of value/weight ratio
     items = sorted(items, key=lambda x: float(x.value/float(x.weight)))[::-1]
+
+    if debug:
+        print ("")
+        print ("Sorted:")
+        print_table(items)
 
     #searching ...
     tree = Heap(items, capacity)
