@@ -70,7 +70,7 @@ class Heap:
         # holds a list with selected item indexes 
         self.solution = [0]*len(items)
         # expansion size
-        self.iter = 0
+        self.iters = 0
 
     def relaxation(self, cur_estimate, slack_idx, slack_used, weight):
         """ Fractional item relaxation heuristic.
@@ -194,22 +194,9 @@ class Heap:
         iter = 0
         # repeat until the LIFO is empty
         while (len(self.lifo) > 0):
-            if iter >= 1000:
-                print ("AM I STUCK ?!?!?")
+            #if iter == 55000000:
+            #    print ("AM I STUCK ?!?!?")
                 #sys.exit(1)
-            #if self.lifo[0].left != None and self.lifo[0].right != None:
-            #    # this node has been visited in both sides. drop it
-            #    temp_solution[self.lifo[0].heap_depth] = -1
-            #    self.lifo.pop(0)
-            #    continue
-            #if input_idx >=  items_lenght:
-            #    # reaching the last item to be tested. return to the last valid value to continue the search
-            #    input_idx = self.lifo[0].heap_depth -1
-            #    # tested all the inputs and none of them were good. Then, give it up and roolback
-            #    if self.lifo[0].right == None:
-            #        self.lifo[0].right = -1
-            # never gets negative
-            #input_idx = max(0,input_idx)
             input_idx = self.lifo[0].heap_depth
             # add another branch to the search based on the next item of the input list
             iitem = self.items[input_idx]
@@ -229,80 +216,59 @@ class Heap:
             else:
                 titem.value = self.lifo[0].value
                 titem.room = self.lifo[0].room
-                #new_estimate = self.lifo[0].estimate-iitem.value
                 # when taking the left side, the item 'iitem' must be removed.
                 # Then, find the item and delete it
-                if len(titem.taken_itens)==0:
-                    print ("MEEEEEGA PAU ! empty taken_itens")
-                    print ('IITEM:')
-                    print (iitem)
-                    print ('TITEM:')
-                    print (titem)
+                # if len(titem.taken_itens)==0:
+                #     print ("MEEEEEGA PAU ! empty taken_itens")
+                #     print ('IITEM:')
+                #     print (iitem)
+                #     print ('TITEM:')
+                #     print (titem)
                     #sys.exit(1)
-                bug = True
+                #bug = True
                 for idx, item  in enumerate(titem.taken_itens):
                     if item.index == iitem.index:
                         del (titem.taken_itens[idx])
-                        bug = False
+                        #bug = False
                         break
-                if bug:
-                    print ("MEEEEEGA PAU ! iitem not found")
-                    print ('IITEM:')
-                    print (iitem)
-                    print ('TITEM:')
-                    print (titem)
-                    sys.exit(1)
+                # if bug:
+                #     print ("MEEEEEGA PAU ! iitem not found")
+                #     print ('IITEM:')
+                #     print (iitem)
+                #     print ('TITEM:')
+                #     print (titem)
+                #     sys.exit(1)
                 titem.estimate, titem.slack_idx, titem.slack_used =  self.linear_relaxation(titem.taken_itens,self.capacity)
-                # titem.estimate, titem.slack_idx, titem.slack_used =  self.relaxation( 
-                #         new_estimate, 
-                #         self.lifo[0].slack_idx, 
-                #         self.lifo[0].slack_used, 
-                #         iitem.weight)
-
-                #titem.estimate = self.lifo[0].estimate-iitem.value
                 self.lifo[0].left = 1
             
             # if the estimate is better than the best value found so far,
             # then it is necessary to continue the search. 
+            # if the new item fits in the bag, then it can be included into the tree
             if titem.estimate > self.best_value and titem.room >=0:
-                # if the new item fits in the bag, then it can be included into the tree
-                #if titem.room >=0:
-                    # the correct would be to put the min after
-                    # titem.heap_depth = input_idx+1. However, most titem are ignored.
-                    # here is the place where titem is not ignored and it is saved.
-                    # then, it is safe to put the min here incurring in less overhead
-                    titem.heap_depth = min(titem.heap_depth,items_lenght-1)
-                    #if self.lifo[0].left == None:
-                    #    temp_solution[self.lifo[0].heap_depth] = titem.index
-                    #else:
-                    #    temp_solution[self.lifo[0].heap_depth] = -1
-
-                    # a solution is only found at the 'leaf' of the fake tree
-                    # Is the newly accepted node has a better value than the best value found so far ?
-                    if input_idx == items_lenght-1 and titem.value > self.best_value:
-                        self.solution = titem.taken_itens[:]
-                        self.best_value = titem.value
-                    else:
-                        # insert the new item into in front of the LIFO
-                        self.lifo.insert(0,titem)
-                    # this is for debug only. the heap depth is not supposed to be > than the # of items
-                    if max_heap < len(self.lifo):
-                        if max_heap < items_lenght:
-                            max_heap = len(self.items)
-                        else:
-                            print ("MEEEEEGA PAU ! max_heap > len(self.items)")
-                            print ('IITEM:')
-                            print (iitem)
-                            print ('TITEM:')
-                            print (titem)
-                            sys.exit(1)
-
-
-
-                # if it does not fit anymore, ignore the new node, but continue the search in this branch
-                #else:
-                    #input_idx +=1
-                    #self.lifo[0].right = None
+                # the correct would be to put the min after
+                # titem.heap_depth = input_idx+1. However, most titem are ignored.
+                # here is the place where titem is not ignored and it is saved.
+                # then, it is safe to put the min here incurring in less overhead
+                titem.heap_depth = min(titem.heap_depth,items_lenght-1)
+                # a solution is only found at the 'leaf' of the fake tree
+                # Is the newly accepted node has a better value than the best value found so far ?
+                if input_idx == items_lenght-1 and titem.value > self.best_value:
+                    self.solution = titem.taken_itens[:]
+                    self.best_value = titem.value
+                else:
+                    # insert the new item into in front of the LIFO
+                    self.lifo.insert(0,titem)
+                # this is for debug only. the heap depth is not supposed to be > than the # of items
+                # if max_heap < len(self.lifo):
+                #     if max_heap < items_lenght:
+                #         max_heap = len(self.items)
+                #     else:
+                #         print ("MEEEEEGA PAU ! max_heap > len(self.items)")
+                #         print ('IITEM:')
+                #         print (iitem)
+                #         print ('TITEM:')
+                #         print (titem)
+                #         sys.exit(1)
             # if the estimate is worst than the best value found so far,
             # then there is no need to continue searching this branch. 
             else:
@@ -312,18 +278,15 @@ class Heap:
                     self.lifo[0].right = -1
                 else:
                     self.lifo[0].left = -1
-                    #temp_solution[self.lifo[0].heap_depth] = -1
-                    # both sides have been tested, then drop this node from the LIFO
-                    #self.lifo.pop(0)
-                    #if len(self.lifo) > 0 :
-                    #    input_idx = self.lifo[0].heap_depth -1
 
             # this node has been visited in both sides. drop it until there is a node with a path not visited
             while len(self.lifo) > 0 and self.lifo[0].left != None and self.lifo[0].right != None:
-                #temp_solution[self.lifo[0].heap_depth] = -1
                 self.lifo.pop(0)
             iter += 1
-        self.iter = iter
+            # print the # of iterations every 2^19
+            if iter % 0x80000 == 0:
+                print ('iteration:',iter, ', best value:', self.best_value)
+        self.iters = iter
 
 def max_tree_size(N):
     """ Calculate the max size of a tree.
@@ -342,16 +305,16 @@ def max_tree_size(N):
 def print_table(solution):
     sum_value = 0.0
     sum_weight = 0
-    print("_______________________________")
+    print("__________________________________")
     print(' {:>11s} {:>10s} {:>10s} '.format("Index","Value","Weight"))
-    print("_______________________________")
+    print("__________________________________")
     cnt=1
     for i in solution:
         print(' {:5d} {:5d} {:10d} {:10d} '.format(cnt, i.index, int(i.value), i.weight))
         sum_value += i.value
         sum_weight += i.weight
         cnt +=1
-    print("_______________________________")
+    print("__________________________________")
     print(' {:21d} {:10d} '.format(int(sum_value), sum_weight))
     print ("") 
     return sum_weight
