@@ -1,6 +1,7 @@
 #!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
+import time
 
 # assign False to submit the solution
 debug = True
@@ -192,6 +193,10 @@ class Heap:
         max_heap = 0
         # used as a kind of performance metric. number of expansions in the search
         iter = 0
+        # profiling vars
+        time_left_prep = 0
+        time_left_relax = 0
+        time_copy = 0
         # repeat until the LIFO is empty
         while (len(self.lifo) > 0):
             #if iter == 55000000:
@@ -204,7 +209,10 @@ class Heap:
             titem.index = iitem.index
             # this can potentially leak the input list, but this is fixed with the 'min' few line below
             titem.heap_depth = input_idx+1
+            # the copy has been moved to the inner 'ifs' to reduce the # times this ops is executed
+            #tstart = time.time()
             titem.taken_itens = self.lifo[0].taken_itens[:]
+            #time_copy += time.time() - tstart
             # since the right side is checked 1st in this if, it will have priority over the left side
             if self.lifo[0].right == None:
                 titem.value = self.lifo[0].value+iitem.value
@@ -214,6 +222,10 @@ class Heap:
                 titem.slack_used = self.lifo[0].slack_used
                 self.lifo[0].right = 1
             else:
+                # tstart = time.time()
+                # titem.taken_itens = self.lifo[0].taken_itens[:]
+                # time_copy += time.time() - tstart
+                tstart = time.time()
                 titem.value = self.lifo[0].value
                 titem.room = self.lifo[0].room
                 # when taking the left side, the item 'iitem' must be removed.
@@ -224,12 +236,12 @@ class Heap:
                 #     print (iitem)
                 #     print ('TITEM:')
                 #     print (titem)
-                    #sys.exit(1)
-                #bug = True
+                #     sys.exit(1)
+                # bug = True
                 for idx, item  in enumerate(titem.taken_itens):
                     if item.index == iitem.index:
                         del (titem.taken_itens[idx])
-                        #bug = False
+                        # bug = False
                         break
                 # if bug:
                 #     print ("MEEEEEGA PAU ! iitem not found")
@@ -238,13 +250,24 @@ class Heap:
                 #     print ('TITEM:')
                 #     print (titem)
                 #     sys.exit(1)
+                time_left_prep += time.time()-tstart
+                tstart = time.time()
                 titem.estimate, titem.slack_idx, titem.slack_used =  self.linear_relaxation(titem.taken_itens,self.capacity)
+                time_left_relax += time.time()-tstart
                 self.lifo[0].left = 1
             
             # if the estimate is better than the best value found so far,
             # then it is necessary to continue the search. 
             # if the new item fits in the bag, then it can be included into the tree
             if titem.estimate > self.best_value and titem.room >=0:
+                # do costly operation as late as possible to remove it from the 'hot zone'
+                # tstart = time.time()
+                # if self.lifo[0].left == None:
+                #     titem.taken_itens = self.lifo[0].taken_itens[:]
+                # time_copy += time.time() - tstart
+
+
+
                 # the correct would be to put the min after
                 # titem.heap_depth = input_idx+1. However, most titem are ignored.
                 # here is the place where titem is not ignored and it is saved.
@@ -285,7 +308,8 @@ class Heap:
             iter += 1
             # print the # of iterations every 2^19
             if iter % 0x80000 == 0:
-                print ('iteration:',iter, ', best value:', self.best_value)
+                print (' - iteration:',iter, ', best value:', self.best_value)
+        print ("TIME prep:",time_left_prep,",TIME relax:",time_left_relax, 'TIME copy:', time_copy)
         self.iters = iter
 
 def max_tree_size(N):
@@ -377,7 +401,8 @@ def solve_it(input_data):
     estimate, slack_idx, slack_used = tree.linear_relaxation(items,capacity)
     if debug:
         print ("Capacity: %d, #items: %d, estimated value: %.4f" % (capacity, item_count, estimate))
-        #print (", ".join(str(i) for i in items))
+
+    print ("\nSearching ...")
     tree.transverse(estimate, slack_idx, slack_used)
 
     if debug:
