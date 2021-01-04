@@ -1,7 +1,14 @@
 #!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
-import time
+import time # used for performance measurements
+import math
+
+# profiled with
+# https://github.com/benfred/py-spy
+# https://github.com/jlfwong/speedscope
+# other possible profiler
+# https://github.com/nvdv/vprof
 
 # assign False to submit the solution
 debug = True
@@ -73,13 +80,13 @@ class Heap:
         # expansion size
         self.iters = 0
 
-    def relaxation(self, cur_estimate, slack_idx, slack_used, weight):
+    def relaxation(self, items, cur_estimate, slack_idx, slack_used, ritem_idx):
         """ Fractional item relaxation heuristic.
 
         The explanation of the Fractional item relaxation heuristic in the video 'Knapsack 5 - relaxation, branch and bound',
         SUCK ... a big time !!!!
         In `this post <https://www.coursera.org/learn/discrete-optimization/discussions/weeks/2/threads/M30RzDnzEeew7Q7A7m3f-g/replies/OnqPNTqYEeerRhI_jX3yNA/comments/KrEW5z0xEee7bwpYS6iFWg>_` 
-        has a descent explanation about the 77 estimate than the Coursera video.
+        has a descent explanation about the 77 estimate in the Coursera video.
         Also, the fractional heuristic is better explained in this `video <https://youtu.be/vb0juybGIKY?list=PL6KMWPQP_DM8t5pQmuLlarpmVc47DVXWd&t=264>_`.
 
         Args:
@@ -91,29 +98,62 @@ class Heap:
         Returns:
             float, int, int: The new estimate, the new slack item index, the used part of the slack item.
         """
-
-        # debug check
-        #if slack_used < 1:
-        #    print ("BUUUUUUUG! slack must be >=1 ")
-        #    sys.exit(1)
-        # use the rest of the fractioned item
-        weight = weight - (self.items[slack_idx].weight - slack_used)
-        estimate = cur_estimate + (self.items[slack_idx].value * (float(slack_used) / float(self.items[slack_idx].weight)))
-        item = slack_idx + 1 
-        # keep reducing the weight until the next fraction item or the end of the list is found 
-        while weight > 0 and item < self.item_len:
-            if weight-self.items[item].weight >= 0:
-                # integral item found
-                weight -= self.items[item].weight
-                slack_used = self.items[item].weight
-                estimate += self.items[item].value
+        removed_item = items[ritem_idx]
+        room = removed_item.weight
+        estimate = cur_estimate - removed_item.value
+        if ritem_idx == slack_idx:
+            room -= slack_used
+            estimate += items[slack_idx].value * (float(slack_used) / float(items[slack_idx].weight))
+        item = ritem_idx + 1
+        # so that it will start searching from 'slack_idx' instead of from the beginning
+        # reducing drastically the relaxation search time
+        fractional = False
+        # keep reducing the room until the next fraction item or the end of the list is found 
+        while room > 0 and item < len(items):
+            if room-items[item].weight >= 0:
+                room -= items[item].weight
+                slack_used = items[item].weight
+                estimate += items[item].value
             else:
-                # fractioned item found
-                slack_used = weight
-                weight = weight / float(self.items[item].weight)
-                estimate += weight * self.items[item].value
+                slack_used = room
+                room = room / float(items[item].weight)
+                estimate += room * items[item].value
+                fractional = True
                 break
             item +=1
+        if not fractional:
+            item -= 1        
+        # if (self.items[item].weight - slack_used) <= removed_item.weight:
+        #     # This will set room to it's last integer room ...
+        #     room = capacity - (capacity - slack_used)
+        #     estimate = cur_estimate - (self.items[slack_idx].value * (float(slack_used) / float(self.items[slack_idx].weight)))
+        #     # so that it will start searching from 'slack_idx' instead of from the beginning
+        #     # reducing drastically the relaxation search time
+        #     fractional = False
+        #     # keep reducing the room until the next fraction item or the end of the list is found 
+        #     while room > 0 and item < len(self.items):
+        #         if room-self.items[item].weight >= 0:
+        #             room -= self.items[item].weight
+        #             slack_used = self.items[item].weight
+        #             estimate += self.items[item].value
+        #         else:
+        #             slack_used = room
+        #             room = room / float(self.items[item].weight)
+        #             estimate += room * self.items[item].value
+        #             fractional = True
+        #             break
+        #         item +=1
+        #     if not fractional:
+        #         item -= 1
+        # # elif self.items[slack_idx].weight <= removed_item.weight:
+        # #     # the weight of the removed item matches the unsed weight of the slack item
+        # #     slack_used += removed_item.weight
+        # #     item += 1
+        # else:
+        #     # when the unsued slack of the same item is enough
+        #     slack_used += self.items[item].weight
+        #     estimate = cur_estimate - removed_item.value + (self.items[item].value * (float(slack_used) / float(self.items[item].weight)))
+
         return estimate, item, slack_used        
 
 
@@ -135,7 +175,7 @@ class Heap:
         # return estimate,item,slack_used
 
     def linear_relaxation(self, items, capacity):
-        """ Compute a upper bound for the cost.
+        """ Compute an upper bound for the cost.
         
         It assumes that the items can be partitioned (fractioned).
         The slack item is the item which is fractioned.
@@ -168,6 +208,9 @@ class Heap:
             item +=1
         if not fractional:
             item -= 1
+        # trunc is applied because the estimate because the solution must be integer.
+        # this might prune the search tree in some cases, but it increases execution time
+        #return math.trunc(estimate),item,slack_used
         return estimate,item,slack_used
     
     def transverse(self, estimate, slack_idx, slack_used):
@@ -194,9 +237,10 @@ class Heap:
         # used as a kind of performance metric. number of expansions in the search
         iter = 0
         # profiling vars
-        time_left_prep = 0
-        time_left_relax = 0
-        time_copy = 0
+        #time_left_prep = 0
+        #time_left_relax = 0
+        #time_left_relax2 = 0
+        #time_copy = 0
         # repeat until the LIFO is empty
         while (len(self.lifo) > 0):
             #if iter == 55000000:
@@ -225,7 +269,7 @@ class Heap:
                 # tstart = time.time()
                 # titem.taken_itens = self.lifo[0].taken_itens[:]
                 # time_copy += time.time() - tstart
-                tstart = time.time()
+                #tstart = time.time()
                 titem.value = self.lifo[0].value
                 titem.room = self.lifo[0].room
                 # when taking the left side, the item 'iitem' must be removed.
@@ -250,10 +294,19 @@ class Heap:
                 #     print ('TITEM:')
                 #     print (titem)
                 #     sys.exit(1)
-                time_left_prep += time.time()-tstart
-                tstart = time.time()
+                #time_left_prep += time.time()-tstart
+
+                #tstart = time.time()
                 titem.estimate, titem.slack_idx, titem.slack_used =  self.linear_relaxation(titem.taken_itens,self.capacity)
-                time_left_relax += time.time()-tstart
+                #time_left_relax += time.time()-tstart
+                #print (titem.estimate, titem.slack_idx, titem.slack_used)
+
+                # tstart = time.time()
+                # estimate2, slack_idx2, slack_used2 =  self.relaxation(self.lifo[0].taken_itens, self.lifo[0].estimate, self.lifo[0].slack_idx, self.lifo[0].slack_used, input_idx-1)
+                # time_left_relax2 += time.time()-tstart
+
+                # if estimate2 != titem.estimate or slack_idx2 != titem.slack_idx and slack_used2 != titem.slack_used:
+                #     print ("BUUUUUUUG !!!!! new relaxation is buggy !")
                 self.lifo[0].left = 1
             
             # if the estimate is better than the best value found so far,
@@ -309,7 +362,7 @@ class Heap:
             # print the # of iterations every 2^19
             if iter % 0x80000 == 0:
                 print (' - iteration:',iter, ', best value:', self.best_value)
-        print ("TIME prep:",time_left_prep,",TIME relax:",time_left_relax, 'TIME copy:', time_copy)
+        #print ("TIME prep:",time_left_prep,",TIME relax:",time_left_relax, 'TIME copy:', time_copy)
         self.iters = iter
 
 def max_tree_size(N):
@@ -418,13 +471,12 @@ def solve_it(input_data):
         print ("Knapsack with %.6f%% of occupation\n" % (sum_weight/capacity*100.0))
         weight_slack = capacity - sum_weight
         # create a list of indexes of all non selected items
-        remove_minus1 = [i for i in tree.solution if i != -1] 
-        excluded_items = list(set(remove_minus1)^set(range(item_count)))
+        selected_idx = [i.index for i in tree.solution] 
         # search for excluded items with lower weight than the weight_slack
         for j in items:
             # ks_500_0, item 51 has weight 1 and value == 0!
             if j.weight <= weight_slack and j.value >0:
-                if j.index in excluded_items:
+                if j.index not in selected_idx:
                     print ("OOOOPS: With weight slack of", weight_slack, ", item", j.index, "with weight", j.weight, "should have been selected. check your algorithm!!!")
 
     # copy data to the expected output variables
