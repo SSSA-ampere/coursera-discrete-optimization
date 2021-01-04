@@ -1,6 +1,21 @@
 #!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
+""" Solution to the 0-1 knapsack problem using branch and bound.
+
+    This is a implementation of the Horowitz-Sahni for the 0-1 knapsack problem.
+    See sec 2.5.1 of "Martello, S. & Toth, P. Knapsack problems: algorithms and 
+    computer implementations. John Wiley & Sons, 1990" for more details.
+
+    TODO:
+
+        * Implement bound described in eq 2.19 and 2.20 of "Martello, S. & Toth, P. Knapsack problems: 
+        algorithms and computer implementations. John Wiley & Sons, 1990".
+        * Reimplement the algorithm more in the style of Sec 2.5.1 Horowitz-Sahni Algorithm.
+        * Implement the algorithm more in the style of Sec 2.5.2 Martello-Toth Algorithm.
+
+"""
+
 import time # used for performance measurements
 import math
 
@@ -174,11 +189,37 @@ class Heap:
         #     item +=1
         # return estimate,item,slack_used
 
+    def relax_martello_and_toth(self):
+        """ A better upper bound compared to 'Dantzig's bound'.
+
+        Bound taken from "Martello, S. & Toth, P. Knapsack problems: algorithms and 
+        computer implementations. John Wiley & Sons, 1990", Section 2.3.1, eq 2.14 to 2.16.
+        In the same section, eq 2.19 and 2.20, there is a even better bound. However, this 
+        was not implemented. Left for future work.
+
+        .. math::
+
+            U_0 = \sum_{j=1}^{s-1} p_j + \left \lfloor \bar{c}\frac{p_{s+1}}{w_{s+1}} \right \rfloor
+            U_1 = \sum_{j=1}^{s-1} p_j + \left \lfloor p_s - (w_s - \bar{c}) \frac{p_{s-1}}{w_{s-1}} \right \rfloor
+            U_2 = \textsl{max}(U_0 \cdot U_1)
+
+        """
+        pass
+
     def linear_relaxation(self, items, capacity):
         """ Compute an upper bound for the cost.
         
         It assumes that the items can be partitioned (fractioned).
         The slack item is the item which is fractioned.
+        This relaxation method is also called 'Dantzig's bound'. 
+        See Martello and Toth, 1990, Section 2.2.
+        The item that is fractioned (does not fit entirely in the knapsack) is also called
+        'critical item'. The weight used by the critical item is called 'residual capacity'.
+
+        .. math::
+
+            U_0 = \sum_{j=1}^{s-1} p_j + \left \lfloor \bar{c}\frac{p_{s}}{w_{s}} \right \rfloor
+
 
         Args:
             items ([Input_Item]): List of input items.
@@ -188,10 +229,10 @@ class Heap:
             float, int, int: A tupple with : the estimated cost, the index of the slack item.
         """
 
-        room = float(capacity)
+        room = capacity
         item = 0
         slack_used = 0
-        estimate = 0.0
+        estimate = 0
         fractional = False
         # I think that this condition cen be removed 'room > 0 and'
         while room > 0 and item < len(items):
@@ -202,15 +243,15 @@ class Heap:
             else:
                 slack_used = room
                 room = room / float(items[item].weight)
-                estimate += room * items[item].value
+                # trunc is applied because the estimate because the solution must be integer.
+                # this might prune the search tree in some cases, but it increases execution time
+                estimate += math.trunc(room * items[item].value)
+                #estimate += room * items[item].value
                 fractional = True
                 break
             item +=1
         if not fractional:
             item -= 1
-        # trunc is applied because the estimate because the solution must be integer.
-        # this might prune the search tree in some cases, but it increases execution time
-        #return math.trunc(estimate),item,slack_used
         return estimate,item,slack_used
     
     def transverse(self, estimate, slack_idx, slack_used):
@@ -425,7 +466,7 @@ def solve_it(input_data):
                 if int(parts[1]) <= 0:
                     print ("WOOHHH ! the list has a item with no weight !!!! it defies the laws of physics!!! ")
                     sys.exit(0)
-                items.append(Input_Item(i, float(parts[0]), int(parts[1])))
+                items.append(Input_Item(i, int(parts[0]), int(parts[1])))
                 # this is used only in debug mode
                 #fake_solution.append(i)
             # if some weight is zero, then assign a very small value to avoid zero div exception
@@ -453,10 +494,14 @@ def solve_it(input_data):
     # apply the linear_relaxation to get the BB estimate
     estimate, slack_idx, slack_used = tree.linear_relaxation(items,capacity)
     if debug:
-        print ("Capacity: %d, #items: %d, estimated value: %.4f" % (capacity, item_count, estimate))
+        print ("Capacity: %d, #items: %d, estimated value: %d" % (capacity, item_count, estimate))
 
-    print ("\nSearching ...")
-    tree.transverse(estimate, slack_idx, slack_used)
+    if slack_used == items[slack_idx].weight:
+        # this means that there is no fractioned item, so this is the optimal solution
+        pass
+    else:
+        print ("\nSearching ...")
+        tree.transverse(estimate, slack_idx, slack_used)
 
     if debug:
         # solution
