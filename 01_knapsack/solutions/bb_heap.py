@@ -3,6 +3,7 @@
 
 """ Solution to the 0-1 knapsack problem using branch and bound.
 
+    It's a depth first Branch & Bound using stack-based search.
     This is a implementation of the Horowitz-Sahni for the 0-1 knapsack problem.
     See sec 2.5.1 of "Martello, S. & Toth, P. Knapsack problems: algorithms and 
     computer implementations. John Wiley & Sons, 1990" for more details.
@@ -97,22 +98,24 @@ class Heap:
 
 
     def relaxation(self, items, cur_estimate, slack_idx, slack_used, ritem_idx):
-        """ Fractional item relaxation heuristic.
+        """ Fractional item relaxation heuristic. This function is NOY WORKING !!!
 
         The explanation of the Fractional item relaxation heuristic in the video 'Knapsack 5 - relaxation, branch and bound',
         SUCK ... a big time !!!!
         In `this post <https://www.coursera.org/learn/discrete-optimization/discussions/weeks/2/threads/M30RzDnzEeew7Q7A7m3f-g/replies/OnqPNTqYEeerRhI_jX3yNA/comments/KrEW5z0xEee7bwpYS6iFWg>_` 
         has a descent explanation about the 77 estimate in the Coursera video.
         Also, the fractional heuristic is better explained in this `video <https://youtu.be/vb0juybGIKY?list=PL6KMWPQP_DM8t5pQmuLlarpmVc47DVXWd&t=264>_`.
+        According to this video, it's possible to reduce the average execution time of the relaxation function.
 
         Args:
-            cur_estimate (float): Current estimate.
+            items ([Input_Item]): List of input items.
+            cur_estimate (int): Current estimate.
             slack_idx (int): Slack item index.
             slack_used (int): The used slack.
-            weight (float): The available weight.
+            ritem_idx (int): The item to be excluded from the list.
 
         Returns:
-            float, int, int: The new estimate, the new slack item index, the used part of the slack item.
+            int, int, int: The new estimate, the new slack item index, the used part of the slack item.
         """
         room = 0
         estimate = 0
@@ -139,7 +142,7 @@ class Heap:
                 else:
                     slack_used = room
                     room = room / float(items[item].weight)
-                    estimate += room * items[item].value
+                    estimate += math.trunc(room * items[item].value)
                     fractional = True
                     break
                 item +=1
@@ -149,25 +152,8 @@ class Heap:
         return estimate, item, slack_used        
 
 
-        # room = float(capacity)
-        # item = 0
-        # slack_used = 0
-        # estimate = 0.0
-        # while room > 0 and item < len(items):
-        #     if room-items[item].weight >= 0:
-        #         room -= items[item].weight
-        #         slack_used = items[item].weight
-        #         estimate += items[item].value
-        #     else:
-        #         slack_used = room
-        #         room = room / float(items[item].weight)
-        #         estimate += room * items[item].value
-        #         break
-        #     item +=1
-        # return estimate,item,slack_used
-
     def relax_martello_and_toth(self):
-        """ A better upper bound compared to 'Dantzig's bound'.
+        """ A better upper bound compared to 'Dantzig's bound'. TO BE DONE!
 
         Bound taken from "Martello, S. & Toth, P. Knapsack problems: algorithms and 
         computer implementations. John Wiley & Sons, 1990", Section 2.3.1, eq 2.14 to 2.16.
@@ -184,8 +170,9 @@ class Heap:
         pass
 
     def linear_relaxation(self, items, capacity):
-        """ Compute an upper bound for the cost.
+        """ Compute an upper bound for the cost. 
         
+        THIS IS WORKING, BUT IT's SLOWER THAN THE CURRENT SOLUTION.
         It assumes that the items can be partitioned (fractioned).
         The slack item is the item which is fractioned.
         This relaxation method is also called 'Dantzig's bound'. 
@@ -197,15 +184,13 @@ class Heap:
 
             U_0 = \sum_{j=1}^{s-1} p_j + \left \lfloor \bar{c}\frac{p_{s}}{w_{s}} \right \rfloor
 
-
         Args:
             items ([Input_Item]): List of input items.
             capacity (int): Knapsack capacity.
 
         Returns:
-            float, int, int: A tupple with : the estimated cost, the index of the slack item.
+            int, int, int: A tupple with : the estimated cost, the index of the critical item, and the residual capacity.
         """
-
         room = capacity
         item = 0
         slack_used = 0
@@ -232,6 +217,16 @@ class Heap:
         return estimate,item,slack_used
     
     def transverse(self, estimate, slack_idx, slack_used):
+        """ Main search function for the 0-1 knapsack problem.
+
+        Args:
+            estimate (int): The initial relaxation estimate.
+            slack_idx (int): The index to the critical item.
+            slack_used (int): The residual capacity.
+
+        Returns:
+            bool: False if the procedure was not aborted, meaning that the result is optimal.
+        """
         # set the initial node for heap searching
         initial = Heap_Node()
         initial.heap_depth = 0
@@ -244,26 +239,39 @@ class Heap:
         initial.taken_itens = self.items[:]
         # initialize the lifo
         self.lifo.append(initial)
-        # temporary solution
-        #temp_solution = [-1]*len(self.items)
         # points to the current input item of the input list
         input_idx = 0
         # to avoid calling len multiple times inside the main loop
         items_lenght = len(self.items)
         # extract the max heap size. Used as a kind of memory used indicator
-        max_heap = 0
+        #max_heap = 0
         # used as a kind of performance metric. number of expansions in the search
         iter = 0
+        # % of knapsack filled. this is used as a stop criteria
+        knapsack_utilization = 0.0
         # profiling vars
         #time_left_prep = 0
         #time_left_relax = 0
         #time_left_relax2 = 0
-        #time_copy = 0
-        # repeat until the LIFO is empty
-        while (len(self.lifo) > 0):
-            #if iter == 55000000:
-            #    print ("AM I STUCK ?!?!?")
-                #sys.exit(1)
+        # starting the execution timer
+        start_time = time.time()
+        abort = False
+
+        # THE STOP CRITERIA:
+        # If program has run for at least MIM_EXEC_TIME and got at least
+        # KNAP_TARGET_UTILIZATION knapsack utilization, then it can be stoped.
+        # Morever, if the execution time is more than MAX_EXEC_TIME, no matter the 
+        # KNAP_TARGET_UTILIZATION, it must also be stoped.
+
+        # stop when the knapsack reaches 99.5% of utilization
+        KNAP_TARGET_UTILIZATION = 0.995
+        # minimum execution time. the execution cannot be aborted before this time (s)
+        MIN_EXEC_TIME = 1 * 60
+        # max execution time. the execution cannot run for more than this time (s)
+        MAX_EXEC_TIME = 5 * 60
+
+        # repeat until the stack is empty
+        while (len(self.lifo) > 0 and not abort):
             input_idx = self.lifo[0].heap_depth
             # add another branch to the search based on the next item of the input list
             iitem = self.items[input_idx]
@@ -271,7 +279,7 @@ class Heap:
             titem.index = iitem.index
             # this can potentially leak the input list, but this is fixed with the 'min' few line below
             titem.heap_depth = input_idx+1
-            # the copy has been moved to the inner 'ifs' to reduce the # times this ops is executed
+            # measure the time to execute this list copy 
             #tstart = time.time()
             titem.taken_itens = self.lifo[0].taken_itens[:]
             #time_copy += time.time() - tstart
@@ -284,33 +292,19 @@ class Heap:
                 titem.slack_used = self.lifo[0].slack_used
                 self.lifo[0].right = 1
             else:
-                # tstart = time.time()
-                # titem.taken_itens = self.lifo[0].taken_itens[:]
-                # time_copy += time.time() - tstart
                 #tstart = time.time()
                 titem.value = self.lifo[0].value
                 titem.room = self.lifo[0].room
-                # when taking the left side, the item 'iitem' must be removed.
-                # Then, find the item and delete it
-                # if len(titem.taken_itens)==0:
-                #     print ("MEEEEEGA PAU ! empty taken_itens")
-                #     print ('IITEM:')
-                #     print (iitem)
-                #     print ('TITEM:')
-                #     print (titem)
-                #     sys.exit(1)
-                # bug = True
                 deleted_idx = 0
-                #fractional = False
                 idx = 0
                 room = self.capacity
                 slack_used = 0
                 estimate = 0                        
                 for item in titem.taken_itens:
+                    # when taking the left side, the item 'iitem' must be removed.
+                    # Then, find the item and delete it
                     if item.index == iitem.index:
-                        #del (titem.taken_itens[idx])
                         deleted_idx = idx
-                        # bug = False
                     else:
                         if room-item.weight >= 0:
                             room -= item.weight
@@ -325,31 +319,22 @@ class Heap:
                             # this might prune the search tree in some cases, but it increases execution time
                             estimate += math.trunc(used_fraction * item.value)
                             break
-                            #estimate += room * item.value
-#                            fractional = True
-#                            idx +=1
-#                if not fractional:
-#                    idx -= 1
                 del (titem.taken_itens[deleted_idx])                   
-                # if bug:
-                #     print ("MEEEEEGA PAU ! iitem not found")
-                #     print ('IITEM:')
-                #     print (iitem)
-                #     print ('TITEM:')
-                #     print (titem)
-                #     sys.exit(1)
                 #time_left_prep += time.time()-tstart
 
+                # ALTERNATE RELAXATION !!! This one works, but it is slower than the current code
                 #tstart = time.time()
                 #titem.estimate, titem.slack_idx, titem.slack_used =  self.linear_relaxation(titem.taken_itens,self.capacity)
                 #time_left_relax += time.time()-tstart
 
+                # ALTERNATE RELAXATION !!! This one DOES NOT WORK. It should be even faster than the current code
                 # tstart = time.time()
                 #estimate2, slack_idx2, slack_used2 =  self.relaxation(self.lifo[0].taken_itens, self.lifo[0].estimate, self.lifo[0].slack_idx, self.lifo[0].slack_used, titem.index)
                 #estimate2, slack_idx2, slack_used2 =  estimate, idx, slack_used
                 titem.estimate, titem.slack_idx, titem.slack_used =  estimate, idx, slack_used
                 # time_left_relax2 += time.time()-tstart
 
+                # UNCOMMENT THIS BLOCK TO TEST ALTERNATE RELAXATIONS STRATEGIES
                 # if estimate2 != titem.estimate or slack_idx2 != titem.slack_idx and slack_used2 != titem.slack_used:
                 #     print ("BUUUUUUUG !!!!! new relaxation is buggy !")
                 #     print ('EXPECTED:', titem.estimate, titem.slack_idx, titem.slack_used)
@@ -372,14 +357,6 @@ class Heap:
             # then it is necessary to continue the search. 
             # if the new item fits in the bag, then it can be included into the tree
             if titem.estimate > self.best_value and titem.room >=0:
-                # do costly operation as late as possible to remove it from the 'hot zone'
-                # tstart = time.time()
-                # if self.lifo[0].left == None:
-                #     titem.taken_itens = self.lifo[0].taken_itens[:]
-                # time_copy += time.time() - tstart
-
-
-
                 # the correct would be to put the min after
                 # titem.heap_depth = input_idx+1. However, most titem are ignored.
                 # here is the place where titem is not ignored and it is saved.
@@ -390,24 +367,15 @@ class Heap:
                 if input_idx == items_lenght-1 and titem.value > self.best_value:
                     self.solution = titem.taken_itens[:]
                     self.best_value = titem.value
-                    taken = [0]*items_lenght
-                    for i in self.solution:
-                        taken[i.index] = 1
-                    print ("BEST VALUE:", iter, self.best_value, taken)
+                    knapsack_utilization = sum([i.weight for i in self.solution]) / self.capacity
+                    if debug:
+                        taken = [0]*items_lenght
+                        for i in self.solution:
+                            taken[i.index] = 1
+                        print ("BEST VALUE:", iter, self.best_value, taken)
                 else:
                     # insert the new item into in front of the LIFO
                     self.lifo.insert(0,titem)
-                # this is for debug only. the heap depth is not supposed to be > than the # of items
-                # if max_heap < len(self.lifo):
-                #     if max_heap < items_lenght:
-                #         max_heap = len(self.items)
-                #     else:
-                #         print ("MEEEEEGA PAU ! max_heap > len(self.items)")
-                #         print ('IITEM:')
-                #         print (iitem)
-                #         print ('TITEM:')
-                #         print (titem)
-                #         sys.exit(1)
             # if the estimate is worst than the best value found so far,
             # then there is no need to continue searching this branch. 
             else:
@@ -422,11 +390,18 @@ class Heap:
             while len(self.lifo) > 0 and self.lifo[0].left != None and self.lifo[0].right != None:
                 self.lifo.pop(0)
             iter += 1
-            # print the # of iterations every 2^19
+            # print the # of iterations every 2^19 and check the abortion criteria
             if iter % 0x80000 == 0:
-                print (' - iteration:',iter, ', best value:', self.best_value)
-        #print ("TIME prep:",time_left_prep,",TIME relax:",time_left_relax, 'TIME copy:', time_copy)
+                if debug:
+                    print (' - iteration:',iter, ', best value:', self.best_value)
+                cur_time = time.time()
+                if (cur_time - start_time) > MIN_EXEC_TIME and knapsack_utilization > KNAP_TARGET_UTILIZATION:
+                    abort = True
+                if (cur_time - start_time) > MAX_EXEC_TIME:
+                    abort = True
+
         self.iters = iter
+        return abort
 
 def max_tree_size(N):
     """ Calculate the max size of a tree.
@@ -438,9 +413,6 @@ def max_tree_size(N):
         int: The number of nodes in the tree.
     """
     return 2**(N+1) - 1
-
-
-        
 
 def print_table(solution):
     sum_value = 0.0
@@ -461,7 +433,7 @@ def print_table(solution):
 
 
 def solve_it(input_data):
-    """ Depth first Branch & Bound using heap (LIFO) search.
+    """ Depth first Branch & Bound using stack (LIFO) search.
 
     """
     # parse the input
@@ -489,10 +461,7 @@ def solve_it(input_data):
                     print ("WOOHHH ! the list has a item with no weight !!!! it defies the laws of physics!!! ")
                     sys.exit(0)
                 items.append(Input_Item(i, int(parts[0]), int(parts[1])))
-                # this is used only in debug mode
-                #fake_solution.append(i)
             # if some weight is zero, then assign a very small value to avoid zero div exception
-                
         else:
             items_removed += 1
 
@@ -511,25 +480,22 @@ def solve_it(input_data):
         print ("Sorted:")
         print_table(items)
 
-    #searching ...
     tree = Heap(items, capacity)
-    # apply the linear_relaxation to get the BB estimate
+    # apply the linear_relaxation to get the inital BB estimate
     estimate, slack_idx, slack_used = tree.linear_relaxation(items,capacity)
     if debug:
         print ("Capacity: %d, #items: %d, estimated value: %d" % (capacity, item_count, estimate))
 
+    aborted = False
     if slack_used == items[slack_idx].weight:
         # this means that there is no fractioned item, so this is the optimal solution
         pass
     else:
-        print ("\nSearching ...")
-        tree.transverse(estimate, slack_idx, slack_used)
+        if debug:
+            print ("\nSearching ...")
+        aborted = tree.transverse(estimate, slack_idx, slack_used)
 
     if debug:
-        # solution
-        #remove_minus1 = [i for i in tree.solution if i != -1] 
-        #print ("Best value is", tree.best_value, "for items", remove_minus1)
-        #print ("Solution found in iteration %d out of %d. %.6f%% of the tree transversed." % (iters,  max_tree_size(item_count), float(iters) / float(max_tree_size(item_count))))
         print ("Performance metrics:")
         print (" - best value: ", tree.best_value)
         print (" - #iterations: ", tree.iters)
@@ -551,9 +517,14 @@ def solve_it(input_data):
         taken[i.index] = 1
     value = tree.best_value
 
-   
+    # say if the solution is optimal or not. If it is abborted, then there is no 
+    # garantee that this is an optimal solution
+    if aborted:
+        optimal = 0
+    else:
+        optimal = 1
     # prepare the solution in the specified output format
-    output_data = str(int(value)) + ' ' + str(0) + '\n'
+    output_data = str(int(value)) + ' ' + str(optimal) + '\n'
     output_data += ' '.join(map(str, taken))
     return output_data
 
@@ -567,4 +538,3 @@ if __name__ == '__main__':
         print(solve_it(input_data))
     else:
         print('This test requires an input file.  Please select one from the data directory. (i.e. python solver.py ./data/ks_4_0)')
-
