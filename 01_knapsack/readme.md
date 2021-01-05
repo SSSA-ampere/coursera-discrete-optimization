@@ -156,4 +156,9 @@ $ snakeviz program.prof
 
 # References
 
- - "Martello, S. & Toth, P. Knapsack problems: algorithms and computer implementations. John Wiley & Sons, 1990"
+ - Martello, S. & Toth, P. Knapsack problems: algorithms and computer implementations. John Wiley & Sons, 1990.
+
+# To go even further
+
+ - Pisinger, David. "Where are the hard knapsack problems?." Computers & Operations Research 32.9 (2005): 2271-2284.
+ 
