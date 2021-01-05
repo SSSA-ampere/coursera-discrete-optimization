@@ -3,8 +3,8 @@
 
 #from collections import namedtuple
 #Item = namedtuple("Item", ['index', 'value', 'weight'])
-#from solutions.bb_heap import solve_it
-from bb_heap import solve_it
+from solutions.bb_heap import solve_it
+#from bb_heap import solve_it
 
 # def solve_it(input_data):
 #     # Modify this code to run your optimization algorithm

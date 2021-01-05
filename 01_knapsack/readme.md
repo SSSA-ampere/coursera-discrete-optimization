@@ -1,24 +1,36 @@
 # Knapsack Solutions
 
+
 This folder has the following solutions to the Knapsack challenge:
 
 - sorted_value_per_weight.py: an extremely fast (less than 0.04s for the largest and about 0.3s for all) and simple heuristics that gives pretty good results with typically with more than 99.99% of knapsack occupation.
-- bb_heap.py: a reeealy fast (less than 0.1s for the largest and about 0.8s for all) [Branch & Bound algorigthm](https://www.coursera.org/learn/discrete-optimization/lecture/66OlO/knapsack-5-relaxation-branch-and-bound) using a heap. Optimal results with very low memory usage (less than 20 nodes kept in memory!!!). Perhaps this could be more elegant if rewritten recursively. 
+- bb_heap.py: a fast (about 6 min for all problems) [Branch & Bound algorithm](https://www.coursera.org/learn/discrete-optimization/lecture/66OlO/knapsack-5-relaxation-branch-and-bound) using a stack. Got the optimal result for all the datasets, except for ks_100_0, ks_106_0, ks_200_0, ks_82_0. It has very low memory footprint since it only keep in memory the not visited nodes, about 2*N nodes. Check the source code to see the detailed documentation. 
 - bb_tree.py: Branch & Bound algorithm using a binary tree. Still under construction. It plots the search tree for debugging purposes.
 
 All solutions have a *debug* flag that can be turned on or off.
 
-# The expected values for the 6 problems
+# Coursera's problems
+## The obtained results for bb_heap.py
 
-                                                   Expected   Obtained
-./data/ks_30_0, solver.py, Knapsack Problem 1      92000      90000
-./data/ks_50_0, solver.py, Knapsack Problem 2      142156     141956
-./data/ks_200_0, solver.py, Knapsack Problem 3     100236     100062
-./data/ks_400_0, solver.py, Knapsack Problem 4     3967028    3966813
-./data/ks_1000_0, solver.py, Knapsack Problem 5    109899     109869
-./data/ks_10000_0, solver.py, Knapsack Problem 6   1099881    1099870
+The six mandatory problems resulted in these results:
 
-# The expected values from other Students
+```
+                    Obtained  Optimal
+./data/ks_30_0      99798     y
+./data/ks_50_0      142156    y
+./data/ks_200_0     100236    n
+./data/ks_400_0     3967180   y
+./data/ks_1000_0    109899    y
+./data/ks_10000_0   1099893   y
+```
+
+bb_heap.py has an abortion strategy to avoid long runs. This way, it was not possible to 
+guarantee the optimal solution for *./data/ks_200_0*. However, looking at Coursera's forum,
+it seems that the obtained value is indeed the optimal value.
+
+The solutions for the entire dataset can be found in the file *results.out*.
+
+## The expected values from other Students
 
 Edward Kandrot's Solution
 
@@ -81,6 +93,9 @@ ks_1000_0   | 1.834e-2 |    109899
 ks_10000_0  | 2.486e-1 |   1099893
 ```
 
+The problem with ks_82_0 and ks_106_0 are some of the hardest cases. Their profits and weights are equal, or close to equal. For a Branch and Bound algorithm, it 'kills' the LP relaxation since
+almost all the tree must be visited.
+
 # Usage
 
 ```
@@ -102,8 +117,21 @@ $ python solutions/sorted_value_per_weight.py data/ks_1000_0
 $ sudo perf record -F 99 -a -g -- python solutions/bb_heap.py data/ks_1000_0 | stackcollapse-perf.pl out.perf | flamegraph.pl --color=java --hash > example-perf.svg
 ```
 
-## Using SnakeViz
+## Using Py-Spy
 
+### Requirements
+
+ - https://github.com/benfred/py-spy
+ - https://github.com/jlfwong/speedscope
+
+### Running 
+
+```
+$ py-spy record -f speedscope -o profile.speed --  python ./solutions/bb_heap.py ./data/ks_40_0
+$ speedscope profile.speed
+```
+
+## Using Snakeviz
 
 ### Requirements
 
@@ -125,3 +153,7 @@ $ snakeviz program.prof
 - https://github.com/NERSC/timemory
 - http://pramodkumbhar.com/2017/04/summary-of-profiling-tools/
 
+
+# References
+
+ - "Martello, S. & Toth, P. Knapsack problems: algorithms and computer implementations. John Wiley & Sons, 1990"

@@ -8,4 +8,5 @@ Sources of examples:
  - ks_unitary: myself
  - ks_matello: From "Martello, S. & Toth, P. Knapsack problems: algorithms and computer implementations. John Wiley & Sons, 1990". Sec 2.3.1 Improved Bounds. The optimal solution is 280,
 1 1 1 1 0 1 0 0
- 
+ - ks_matello_2: From "Martello, S. & Toth, P. Knapsack problems: algorithms and computer implementations. John Wiley & Sons, 1990". Sec 2.5.2 Improved Bounds. The optimal solution is 107,
+1 0 0 1 0 0 0

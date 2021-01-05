@@ -2,6 +2,34 @@ import igraph as ig
 import plotly.graph_objects as go 
 #import random
 
+######################################
+# tree ploting with graphviz
+######################################
+# 1) https://www.programcreek.com/python?code=isaacg1%2Fpyth%2Fpyth-master%2Ftree.py
+# def disp_tree(trees):
+#     graph = Digraph()
+#     count = 0
+
+#     def add(tree, count):
+#         if not tree:
+#             return count
+#         root = count
+#         graph.node(str(root), label=tree[0])
+#         for subtree in tree[1:]:
+#             if subtree:
+#                 count += 1
+#                 graph.edge(str(root), str(count))
+#                 count = add(subtree, count)
+#         return count
+#     for tree in trees:
+#         count = add(tree, count) + 1
+#     graph.render('tree-rep.gv', view=True) 
+####################################################
+#
+# 2) https://renenyffenegger.ch/notes/tools/Graphviz/examples/edge-crossing
+#
+# 3) https://anytree.readthedocs.io/en/latest/dotexport.html    <=======
+
 
 def make_annotations(pos, labels, font_size=10, font_color='rgb(250,250,250)'):
     L=len(pos)
