@@ -107,9 +107,10 @@ class Heap:
         Also, the fractional heuristic is better explained in this `video <https://youtu.be/vb0juybGIKY?list=PL6KMWPQP_DM8t5pQmuLlarpmVc47DVXWd&t=264>_`.
         According to this video, it's possible to reduce the average execution time of the relaxation function.
 
-        The idea of this optimization is that the search for the new critical item could start from the current critical item
-        considering that an item has been deleted. However, this is quite complex and full of corner cases that eventually 
-        break the code.
+        The idea of this optimization is that relaxation could be calculated incremently in a given path. 
+        The estimate value of the next not taken item uses the prior node estimate. The worst case complexity is still O(n),
+        but in average is O(1). However, this is quite complex for the data structure i have selected and it's full of corner cases that eventually 
+        break the code. This optimization is mentioned in this `video <https://youtu.be/jxGwFWeZB0U?list=PL6KMWPQP_DM8t5pQmuLlarpmVc47DVXWd&t=3099>_`.
 
         Args:
             items ([Input_Item]): List of input items.
