@@ -95,6 +95,7 @@ class Heap:
         # expansion size
         self.iters = 0
 
+
     def relaxation(self, items, cur_estimate, slack_idx, slack_used, ritem_idx):
         """ Fractional item relaxation heuristic.
 
@@ -113,61 +114,37 @@ class Heap:
         Returns:
             float, int, int: The new estimate, the new slack item index, the used part of the slack item.
         """
-        removed_item = items[ritem_idx]
-        room = removed_item.weight
-        estimate = cur_estimate - removed_item.value
-        if ritem_idx == slack_idx:
+        room = 0
+        estimate = 0
+        item = 0
+        if ritem_idx == slack_idx or ritem_idx >= len(items):
             room -= slack_used
             estimate += items[slack_idx].value * (float(slack_used) / float(items[slack_idx].weight))
-        item = ritem_idx + 1
-        # so that it will start searching from 'slack_idx' instead of from the beginning
-        # reducing drastically the relaxation search time
-        fractional = False
-        # keep reducing the room until the next fraction item or the end of the list is found 
-        while room > 0 and item < len(items):
-            if room-items[item].weight >= 0:
-                room -= items[item].weight
-                slack_used = items[item].weight
-                estimate += items[item].value
-            else:
-                slack_used = room
-                room = room / float(items[item].weight)
-                estimate += room * items[item].value
-                fractional = True
-                break
-            item +=1
-        if not fractional:
-            item -= 1        
-        # if (self.items[item].weight - slack_used) <= removed_item.weight:
-        #     # This will set room to it's last integer room ...
-        #     room = capacity - (capacity - slack_used)
-        #     estimate = cur_estimate - (self.items[slack_idx].value * (float(slack_used) / float(self.items[slack_idx].weight)))
-        #     # so that it will start searching from 'slack_idx' instead of from the beginning
-        #     # reducing drastically the relaxation search time
-        #     fractional = False
-        #     # keep reducing the room until the next fraction item or the end of the list is found 
-        #     while room > 0 and item < len(self.items):
-        #         if room-self.items[item].weight >= 0:
-        #             room -= self.items[item].weight
-        #             slack_used = self.items[item].weight
-        #             estimate += self.items[item].value
-        #         else:
-        #             slack_used = room
-        #             room = room / float(self.items[item].weight)
-        #             estimate += room * self.items[item].value
-        #             fractional = True
-        #             break
-        #         item +=1
-        #     if not fractional:
-        #         item -= 1
-        # # elif self.items[slack_idx].weight <= removed_item.weight:
-        # #     # the weight of the removed item matches the unsed weight of the slack item
-        # #     slack_used += removed_item.weight
-        # #     item += 1
-        # else:
-        #     # when the unsued slack of the same item is enough
-        #     slack_used += self.items[item].weight
-        #     estimate = cur_estimate - removed_item.value + (self.items[item].value * (float(slack_used) / float(self.items[item].weight)))
+            item = slack_idx-1
+            slack_used = items[item].weight
+        else:
+            removed_item = items[ritem_idx]
+            room += removed_item.weight
+            estimate += cur_estimate - removed_item.value
+            item = ritem_idx + 1
+            # so that it will start searching from 'slack_idx' instead of from the beginning
+            # reducing drastically the relaxation search time
+            fractional = False
+            # keep reducing the room until the next fraction item or the end of the list is found 
+            while room > 0 and item < len(items):
+                if room-items[item].weight >= 0:
+                    room -= items[item].weight
+                    slack_used = items[item].weight
+                    estimate += items[item].value
+                else:
+                    slack_used = room
+                    room = room / float(items[item].weight)
+                    estimate += room * items[item].value
+                    fractional = True
+                    break
+                item +=1
+            if not fractional:
+                item -= 1        
 
         return estimate, item, slack_used        
 
@@ -323,11 +300,37 @@ class Heap:
                 #     print (titem)
                 #     sys.exit(1)
                 # bug = True
-                for idx, item  in enumerate(titem.taken_itens):
+                deleted_idx = 0
+                #fractional = False
+                idx = 0
+                room = self.capacity
+                slack_used = 0
+                estimate = 0                        
+                for item in titem.taken_itens:
                     if item.index == iitem.index:
-                        del (titem.taken_itens[idx])
+                        #del (titem.taken_itens[idx])
+                        deleted_idx = idx
                         # bug = False
-                        break
+                    else:
+                        if room-item.weight >= 0:
+                            room -= item.weight
+                            slack_used = item.weight
+                            estimate += item.value
+                            idx +=1
+                        elif room > 0:
+                            slack_used = room
+                            room = 0
+                            used_fraction = slack_used / float(item.weight)
+                            # trunc is applied because the estimate because the solution must be integer.
+                            # this might prune the search tree in some cases, but it increases execution time
+                            estimate += math.trunc(used_fraction * item.value)
+                            break
+                            #estimate += room * item.value
+#                            fractional = True
+#                            idx +=1
+#                if not fractional:
+#                    idx -= 1
+                del (titem.taken_itens[deleted_idx])                   
                 # if bug:
                 #     print ("MEEEEEGA PAU ! iitem not found")
                 #     print ('IITEM:')
@@ -338,16 +341,31 @@ class Heap:
                 #time_left_prep += time.time()-tstart
 
                 #tstart = time.time()
-                titem.estimate, titem.slack_idx, titem.slack_used =  self.linear_relaxation(titem.taken_itens,self.capacity)
+                #titem.estimate, titem.slack_idx, titem.slack_used =  self.linear_relaxation(titem.taken_itens,self.capacity)
                 #time_left_relax += time.time()-tstart
-                #print (titem.estimate, titem.slack_idx, titem.slack_used)
 
                 # tstart = time.time()
-                # estimate2, slack_idx2, slack_used2 =  self.relaxation(self.lifo[0].taken_itens, self.lifo[0].estimate, self.lifo[0].slack_idx, self.lifo[0].slack_used, input_idx-1)
+                #estimate2, slack_idx2, slack_used2 =  self.relaxation(self.lifo[0].taken_itens, self.lifo[0].estimate, self.lifo[0].slack_idx, self.lifo[0].slack_used, titem.index)
+                #estimate2, slack_idx2, slack_used2 =  estimate, idx, slack_used
+                titem.estimate, titem.slack_idx, titem.slack_used =  estimate, idx, slack_used
                 # time_left_relax2 += time.time()-tstart
 
                 # if estimate2 != titem.estimate or slack_idx2 != titem.slack_idx and slack_used2 != titem.slack_used:
                 #     print ("BUUUUUUUG !!!!! new relaxation is buggy !")
+                #     print ('EXPECTED:', titem.estimate, titem.slack_idx, titem.slack_used)
+                #     print ('PARENT:')
+                #     taken = [0]*items_lenght
+                #     for i in self.lifo[0].taken_itens:
+                #         taken[i.index] = 1
+                #     print (taken)
+                #     print (self.lifo[0].estimate,self.lifo[0].value, self.lifo[0].room, self.lifo[0].slack_idx, self.lifo[0].slack_used)
+                #     print ('GOT:')
+                #     taken = [0]*items_lenght
+                #     for i in titem.taken_itens:
+                #         taken[i.index] = 1
+                #     print (taken)
+                #     print (self.lifo[0].estimate, self.lifo[0].slack_idx, self.lifo[0].slack_used, input_idx-1)
+                #     print (estimate2, slack_idx2, slack_used2)
                 self.lifo[0].left = 1
             
             # if the estimate is better than the best value found so far,
@@ -372,6 +390,10 @@ class Heap:
                 if input_idx == items_lenght-1 and titem.value > self.best_value:
                     self.solution = titem.taken_itens[:]
                     self.best_value = titem.value
+                    taken = [0]*items_lenght
+                    for i in self.solution:
+                        taken[i.index] = 1
+                    print ("BEST VALUE:", iter, self.best_value, taken)
                 else:
                     # insert the new item into in front of the LIFO
                     self.lifo.insert(0,titem)
