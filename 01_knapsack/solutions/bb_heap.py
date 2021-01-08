@@ -18,7 +18,8 @@
 """
 
 import time # used for performance measurements
-import math
+import networkx as nx # used only to save the tree
+import math # used only for the trunc
 
 # profiled with
 # https://github.com/benfred/py-spy
@@ -28,6 +29,9 @@ import math
 
 # assign False to submit the solution
 debug = True
+
+# Assign True to build a Networkx graph of the tree and, at the end, save it in Pickle format
+build_tree = True
 
 class Input_Item:
     def __init__(self, index, value, weight):
@@ -61,6 +65,8 @@ class Heap_Node:
         self.heap_depth = 0
         # input data index
         self.index = 0
+        # used as unique identified when build_tree is True
+        self.iter = 0
         # value obtained
         self.value = 0
         # room left
@@ -93,6 +99,8 @@ class Heap:
         self.best_value = 0
         # holds a list with selected item indexes 
         self.solution = [0]*len(items)
+        # the node index of the best value. used only to paint this node with a diff color
+        self.solution_idx = 0
         # expansion size
         self.iters = 0
 
@@ -255,7 +263,7 @@ class Heap:
         # extract the max heap size. Used as a kind of memory used indicator
         #max_heap = 0
         # used as a kind of performance metric. number of expansions in the search
-        iter = 0
+        iter = 1
         # % of knapsack filled. this is used as a stop criteria
         knapsack_utilization = 0.0
         # profiling vars
@@ -265,6 +273,16 @@ class Heap:
         # starting the execution timer
         start_time = time.time()
         abort = False
+        # used only to save the tree
+        G = None
+        if build_tree:
+            G = nx.DiGraph()
+            G.add_node(0)
+            G.nodes[0]['value'] = initial.value
+            G.nodes[0]['estimate'] = initial.estimate
+            G.nodes[0]['room'] = initial.room
+            G.nodes[0]['color'] = 'gray'
+
 
         # THE STOP CRITERIA:
         # If program has run for at least MIM_EXEC_TIME and got at least
@@ -381,6 +399,16 @@ class Heap:
                 #     print (estimate2, slack_idx2, slack_used2)
                 self.lifo[0].left = 1
             
+            # used only to save the tree format
+            titem.iter  = iter
+            if build_tree:
+                G.add_node(titem.iter)
+                G.add_edge(self.lifo[0].iter, titem.iter)
+                G.nodes[titem.iter]['value'] = titem.value
+                G.nodes[titem.iter]['estimate'] = titem.estimate
+                G.nodes[titem.iter]['room'] = titem.room
+                G.nodes[titem.iter]['color'] = 'gray'
+
             # if the estimate is better than the best value found so far,
             # then it is necessary to continue the search. 
             # if the new item fits in the bag, then it can be included into the tree
@@ -395,7 +423,11 @@ class Heap:
                 if input_idx == items_lenght-1 and titem.value > self.best_value:
                     self.solution = titem.taken_itens[:]
                     self.best_value = titem.value
+                    # used only to save the tree
+                    self.solution_idx = iter
                     knapsack_utilization = sum([i.weight for i in self.solution]) / self.capacity
+                    if build_tree:
+                        G.nodes[titem.iter]['color'] = 'yellow'
                     if debug:
                         taken = [0]*items_lenght
                         for i in self.solution:
@@ -407,6 +439,7 @@ class Heap:
             # if the estimate is worst than the best value found so far,
             # then there is no need to continue searching this branch. 
             else:
+                G.nodes[titem.iter]['color'] = 'aquamarine'
                 # if the left is still None, then the current node was assigned to the right
                 if self.lifo[0].left == None:
                     # it means end of the search via the right side, but the left side was not searched yet
@@ -428,6 +461,10 @@ class Heap:
                 if (cur_time - start_time) > MAX_EXEC_TIME:
                     abort = True
 
+        if build_tree:
+            G.nodes[self.solution_idx]['color'] = 'red'
+            nx.write_gpickle(G,'tree.pickle')
+            print ("tree has", G.number_of_nodes(), "nodes")
         self.iters = iter
         return abort
 
