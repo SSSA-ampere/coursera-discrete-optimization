@@ -1,5 +1,10 @@
-import igraph as ig
-import plotly.graph_objects as go 
+import matplotlib.pyplot as plt
+import networkx as nx
+import os,sys
+from networkx.drawing.nx_pydot import graphviz_layout
+
+#import igraph as ig
+#import plotly.graph_objects as go 
 #import random
 
 ######################################
@@ -29,6 +34,12 @@ import plotly.graph_objects as go
 # 2) https://renenyffenegger.ch/notes/tools/Graphviz/examples/edge-crossing
 #
 # 3) https://anytree.readthedocs.io/en/latest/dotexport.html    <=======
+#    https://stackoverflow.com/questions/57512155/how-to-draw-a-tree-more-beautifully-in-networkx
+# 4) https://colab.research.google.com/drive/1Qq4TfF1XrsQZpNyOqjC4uL5saicPYOo1
+#    https://github.com/uwdata/visualization-curriculum
+#    https://altair-viz.github.io/gallery/#interactive-charts
+#    https://nbviewer.jupyter.org/gist/msund/11349097
+
 
 
 def make_annotations(pos, labels, font_size=10, font_color='rgb(250,250,250)'):
@@ -155,3 +166,40 @@ def plot(plot_labels, edges):
 #edges = [(0, 1), (1, 2), (2, 3), (3, 4)]
 #plot_labels = [(0, 0, 31181, 12452.828296703297), (13, 3878, 21525, 12452.828296703297), (3, 8014, 11153, 12452.828296703297), (2, 10959, 3763, 12452.828296703297), (5, 11981, 1019, 12452.828296703297)]
 #plot(plot_labels,edges)
+
+
+
+
+
+if __name__ == '__main__':
+    if len(sys.argv) > 3:
+        if not os.path.isfile(sys.argv[1]):
+            print ("ERROR: file", sys.argv[1], "not found")
+            sys.exit(1)
+
+        G = nx.read_gpickle(sys.argv[1])
+        pos = None
+        print ("ploting a tree of", G.number_of_nodes(), "nodes ...")
+        if sys.argv[2] == 'twopi':
+            pos = graphviz_layout(G, prog="twopi")
+        elif sys.argv[2] == 'dot':
+            pos = graphviz_layout(G, prog="dot")
+        elif sys.argv[2] == 'circo':
+            pos = graphviz_layout(G, prog="circo")
+        elif sys.argv[2] == 'plotly':
+            print ("ERROR: not implemented yet")
+            pass
+        elif sys.argv[2] == 'altair':
+            print ("ERROR: not implemented yet")
+            pass
+        else:
+            print ("ERROR: unsupported output format", sys.argv[2])
+
+        node_colors = [v['color'] for n,v in G.nodes(data=True)]
+        nx.draw(G, pos, node_color = node_colors)
+        plt.show()
+    else:
+        print("ERROR: The required arguments are:")
+        print (" $ ./tree_plot <input_pickle_file> <output_format> <ouput_filename>')")
+        print (" suported formats: dot, twopi, circo, plotly, altair")
+

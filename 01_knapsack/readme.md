@@ -103,6 +103,13 @@ $ python solutions/bb_heap.py data/ks_1000_0
 $ python solutions/sorted_value_per_weight.py data/ks_1000_0
 ```
 
+# Plotting the tree
+
+bb_head.py as an attribute called *build_tree* that, when it's True, it saves the tree in Pickle format while performing the search. Then, two additional scripts can be used for plotting the tree:
+
+ - *tree_convert.py*: converts the generated Pickle file into several other formats, including dot graphviz.
+ - *tree_plot.py*: plot the tree using Networkx. In the future it will also plot an interactive tree with plotly. 
+
 # Profiling
 
 ## Using FlameGraph
@@ -156,9 +163,11 @@ $ snakeviz program.prof
 
 # References
 
- - Martello, S. & Toth, P. Knapsack problems: algorithms and computer implementations. John Wiley & Sons, 1990.
+ - Martello, S. & Toth, P. [Knapsack problems: algorithms and computer implementations](http://www.or.deis.unibo.it/knapsack.html). John Wiley & Sons, 1990.
+ - Ghassan Shobaki. ["Algorithms Lecture 20: Backtracking and Branch-and-Bound (Part 1)"](https://www.youtube.com/watch?v=WW5u8RTu44Y&list=PL6KMWPQP_DM8t5pQmuLlarpmVc47DVXWd&index=20).
+ - Kellerer, H., Pferschy, U., & Pisinger, D. (2004). Knapsack Problems. Sec 2.4 
+ 
 
 # To go even further
 
  - Pisinger, David. "Where are the hard knapsack problems?." Computers & Operations Research 32.9 (2005): 2271-2284.
- 
