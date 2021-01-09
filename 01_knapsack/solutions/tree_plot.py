@@ -2,10 +2,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import os,sys
 from networkx.drawing.nx_pydot import graphviz_layout
-
-#import igraph as ig
-#import plotly.graph_objects as go 
-#import random
+import plotly.graph_objs as go
+import time
 
 ######################################
 # tree ploting with graphviz
@@ -41,134 +39,169 @@ from networkx.drawing.nx_pydot import graphviz_layout
 #    https://nbviewer.jupyter.org/gist/msund/11349097
 
 
+def plotly_tree(G, layout, title = '', edge_legend='', node_legend='', 
+    edge_weight_attrib_name='weight', node_weight_attrib_name='weight',
+    edge_hover_template='', node_hover_template='',
+    edge_customdata=[], node_customdata=[]):
+    """ Plot the graph using `Plotly <https://plotly.com/>`_.
 
-def make_annotations(pos, labels, font_size=10, font_color='rgb(250,250,250)'):
-    L=len(pos)
-    if len(labels)!=L:
-        raise ValueError('The lists pos and text must have the same len')
-    annotations = []
-    for k in range(L):
-        annotations.append(
-            dict(
-                text=labels[k], # or replace labels with a different list for the text within the circle
-                x=pos[k][0], y=2*M-position[k][1],
-                xref='x1', yref='y1',
-                font=dict(color=font_color, size=font_size),
-                showarrow=False)
-        )
-    return annotations
+    Args:
+        G (:class:`networkx.DiGraph`): The directed graph.
+        layout (str): One of the graph layouts supported by networkx.
 
-def node_label(node_info):
-    label =  "index=%d<br>value=%d<br>weight=%d" % (node_info[0],node_info[1],node_info[2])
-    return label
+    Returns:
+        :class:`plotly.graph_objects.Figure`: The graph figure by plotly.
+
+
+    """
+    if layout == 'planar':
+        pos = nx.planar_layout(G)
+    elif layout == 'shell':
+        pos = nx.layout.shell_layout(G)
+    elif layout == 'spring':
+        pos = nx.layout.spring_layout(G)
+    elif layout == 'spectral':
+        pos = nx.layout.spectral_layout(G)
+    elif layout == 'spiral':
+        pos = nx.layout.spiral_layout(G)
+    elif layout == 'fruchterman_reingold':
+        pos = nx.layout.fruchterman_reingold_layout(G)
+    elif layout == 'dot':
+        pos = nx.nx_pydot.pydot_layout(G, prog="dot")
+    else:
+        print ("ERROR: unsupported graph layout", layout)
+        sys.exit(1)
+
+    # insert the posistion property into the nodes
+    for node in G.nodes:
+        G.nodes[node]['pos'] = list(pos[node])
+
+    # create the nodes
+    traceRecode = []
+    start_nodes = time.time()
+    node_trace = go.Scatter(x=[], y=[], text=[], 
+                            mode='markers+text', 
+                            textposition="bottom center",
+                            hoverinfo="text", 
+                            marker=dict(
+                                showscale=True,
+                                # colorscale options
+                                #'Greys' | 'YlGnBu' | 'Greens' | 'YlOrRd' | 'Bluered' | 'RdBu' |
+                                #'Reds' | 'Blues' | 'Picnic' | 'Rainbow' | 'Portland' | 'Jet' |
+                                #'Hot' | 'Blackbody' | 'Earth' | 'Electric' | 'Viridis' |
+                                #colorscale='Reds',
+                                #reversescale=False,
+                                color=[],
+                                size=50,
+                                # colorbar=dict(
+                                #     thickness=15,
+                                #     title=node_legend,
+                                #     xanchor='left',
+                                #     titleside='right'
+                                # )
+                            )
+                        )
+    end_nodes = time.time()
+
+    # populating the nodes
+    # zip split the tuple into 2 vectors
+    x, y = zip(*list(nx.get_node_attributes(G,'pos').values()))
+    node_trace['x'] = x
+    node_trace['y'] = y
+    node_trace['text'] = list(G.nodes())
+    node_trace['hovertemplate'] = node_hover_template
+    node_trace.marker.color = list(nx.get_node_attributes(G,'color').values())
+    node_trace['customdata'] = node_customdata
+
+    # creating the edges
+    start_edges = time.time()
+    for edge in G.edges:
+        x0, y0 = G.nodes[edge[0]]['pos']
+        x1, y1 = G.nodes[edge[1]]['pos']
+        #weight = float(G.edges[edge]['TransactionAmt']) / max(edge1['TransactionAmt']) * 10
+        trace = go.Scatter(x=tuple([x0, x1, None]), y=tuple([y0, y1, None]),
+                        mode='lines',
+                        line=dict(width=0.5, color='#888'),
+                        line_shape='spline'
+                        #marker=dict(color=colors[index]),
+                        #opacity=1
+                        )
+        # TODO add arrows 
+        # https://plotly.com/python/text-and-annotations/
+        #fig.add_annotation(x=x1, y=y1,
+        #    showarrow=True,
+        #    arrowhead=1)
+        traceRecode.append(trace)
+    end_edges = time.time()
+    
+    traceRecode.append(node_trace)
+
+    start_fig = time.time()
+    fig = go.Figure(
+                #data=[edge_trace, middle_hover_trace, node_trace],
+                data=traceRecode,
+                layout=go.Layout(
+                    title= title,
+                    titlefont_size=16,
+                    showlegend=False,
+                    hovermode='closest',
+                    margin=dict(b=20,l=5,r=5,t=40),
+                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                    )
+    end_fig = time.time()
+
+    return fig
+
+
+def plotly(G, layout):
+    """ plot an interactinve tree with Plotly.
+
+    Args:
+        G (:class:`networkx.DiGraph`): The directed graph.
+        layout (str): One of the graph layouts supported by networkx.
+
+    Returns:
+        :class:`plotly.graph_objects.Figure`: The graph figure by plotly.
+
+    """
+
+    title = 'Knapsack Tree'
+    edge_legend=''
+    node_legend=''
+    edge_weight_attrib_name='' 
+    node_weight_attrib_name=''
+    edge_hover_template="" 
+    node_hovertemplate="<br>".join([
+            "value: %{customdata[0]}",
+            "estimate: %{customdata[1]}",
+            "room: %{customdata[2]}"
+        ])
+
+    # populating the node hover data
+    # the map converts every element of the list (int) into string
+    # https://stackoverflow.com/questions/26320175/how-to-convert-integers-in-list-to-string-in-python#26320200
+    value = list(map(str, list(nx.get_node_attributes(G,'value').values())))
+    estimate = list(map(str, list(nx.get_node_attributes(G,'estimate').values())))
+    room = list(map(str, list(nx.get_node_attributes(G,'room').values())))
+    # convert the lists into a single list of 5-item tuple
+    node_customdata = list(zip(value, estimate, room))
    
+    # populating the edge hover data
+    # since every edge is a new plotly scater, a list of customdata is necessary,
+    # one for every edge of the graph
+    edge_customdata = []
+    #for edge in G.edges:
+    #    edge_customdata.append((G.edges[edge]['name'], str(G.edges[edge]['size'])))
 
+    fig = plotly_tree(G, layout, 
+        title, edge_legend, node_legend, 
+        edge_weight_attrib_name, node_weight_attrib_name, 
+        edge_hover_template,node_hovertemplate, 
+        edge_customdata, node_customdata
+        )
 
-def plot(plot_labels, edges):
-
-    # to get max value in a list of tuples 
-    max_node = max(map(max, zip(*edges)))
-    graph = ig.Graph()
-    graph.add_vertices(max_node+1)
-    graph.add_edges(edges)
-    #print(graph)
-    #print(len(plot_labels), "----", plot_labels)
-    #print(len(graph.vs), len(graph.es))
-
-    for i in range(len(graph.vs)):
-        graph.vs[i]["index"] = plot_labels[i][0]
-        graph.vs[i]["value"] = plot_labels[i][1]
-        graph.vs[i]["room"] = plot_labels[i][2]
-        graph.vs[i]["estimate"] = plot_labels[i][3]
-
-    #print(graph)
-
-    fig = go.Figure()
-
-    # https://igraph.org/python/doc/tutorial/tutorial.html#layouts-and-plotting
-    lay = graph.layout('tree',root=[0])
-    vnum = graph.vcount()
-    position = {k: lay[k] for k in range(vnum)}
-    Y = [lay[k][1] for k in range(vnum)]
-    M = max(Y)
-
-    #es = ig.EdgeSeq(graph)   # sequence of edges
-    E = [e.tuple for e in graph.es]   # list of edges
-    L = len(position)
-    Xn = [position[k][0] for k in range(L)]     # x postion for vertices
-    Yn = [2*M-position[k][1] for k in range(L)]  # y postion for vertices
-    Xe = []
-    Ye = []
-    for edge in E:
-        Xe += [position[edge[0]][0], position[edge[1]][0], None]
-        Ye += [2*M-position[edge[0]][1], 2*M-position[edge[1]][1], None]
-
-    # create just any random label 
-    #node_tuple = (random.randint(0,10),random.randint(0,10),random.randint(0,10))
-    #v_label = [node_label(node_tuple) for i in range(len(position))]
-    #v_label = [i for i in range(len(position))]
-    #print ("LEN:", len(v_label), len(position))
-
-    #extracting vertixes info from 'plot_labels'
-    indexes = []
-    values = []
-    rooms = []
-    estimates = []
-    hovertext = []
-    for i in plot_labels:
-        indexes.append(i[0])
-        values.append(i[1])
-        rooms.append(i[2])
-        estimates.append(i[3])
-        hovertext.append("Index:%d<br>Value:%d<br>Room:%d<br>Estimate:%.2f" % (i[0],i[1],i[2],i[3]))
-
-    # add property for the vertixes. info not used for now
-    graph.vs['index'] = indexes
-    graph.vs['value'] = values
-    graph.vs['room'] = rooms
-    graph.vs['estimate'] = estimates
-
-    # plot
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=Xe, y=Ye, mode='lines',
-                            line=dict(color='rgb(210, 210, 210)', width=1),
-                            hoverinfo='none'))
-    fig.add_trace(go.Scatter(x=Xn, y=Yn, name='bla',
-                            mode='markers', 
-                            marker=dict(symbol='circle-dot', 
-                            size=18, color='#6175c1',
-                            line=dict(color='rgb(50,50,50)', width=1)),
-                            #text=graph.vs['name'],
-                            hovertext=hovertext,
-                            hoverinfo='text',
-                            opacity=0.8))
-
-
-    axis = dict(showline=False, # hide axis line, grid, ticklabels and  title
-                zeroline=False,
-                showgrid=True,
-                showticklabels=True,
-                )
-
-    fig.update_layout(title= 'Knapsack Tree',
-                #annotations=make_annotations(position, v_label),
-                font_size=12,
-                showlegend=False,
-                xaxis=axis,
-                yaxis=axis,
-                margin=dict(l=40, r=40, b=85, t=100),
-                hovermode='closest',
-                plot_bgcolor='rgb(248,248,248)'
-                )
     fig.show()
-
-# enable this for testing
-#edges = [(0, 1), (1, 2), (2, 3), (3, 4)]
-#plot_labels = [(0, 0, 31181, 12452.828296703297), (13, 3878, 21525, 12452.828296703297), (3, 8014, 11153, 12452.828296703297), (2, 10959, 3763, 12452.828296703297), (5, 11981, 1019, 12452.828296703297)]
-#plot(plot_labels,edges)
-
-
-
 
 
 if __name__ == '__main__':
@@ -187,17 +220,21 @@ if __name__ == '__main__':
         elif sys.argv[2] == 'circo':
             pos = graphviz_layout(G, prog="circo")
         elif sys.argv[2] == 'plotly':
-            print ("ERROR: not implemented yet")
-            pass
+            plotly(G,'dot')
         elif sys.argv[2] == 'altair':
             print ("ERROR: not implemented yet")
             pass
         else:
             print ("ERROR: unsupported output format", sys.argv[2])
 
-        node_colors = [v['color'] for n,v in G.nodes(data=True)]
-        nx.draw(G, pos, node_color = node_colors)
-        plt.show()
+
+        if sys.argv[2] == 'twopi' or sys.argv[2] == 'dot' or sys.argv[2] == 'circo':
+            node_colors = [v['color'] for n,v in G.nodes(data=True)]
+            nx.draw(G, pos, node_color = node_colors)
+            plt.show()
+            p=nx.drawing.nx_pydot.to_pydot(G)
+            p.write_png(sys.argv[3])
+
     else:
         print("ERROR: The required arguments are:")
         print (" $ ./tree_plot <input_pickle_file> <output_format> <ouput_filename>')")
