@@ -12,6 +12,9 @@ if __name__ == '__main__':
 
         G = nx.read_gpickle(sys.argv[1])
         print ("converting a tree of", G.number_of_nodes(), "nodes ...")
+        if G.number_of_nodes() > 1000:
+            print ("WARNING: the tree is very big. You will probably run out of memory!")
+            input("Press any to continue or CTRL+C to abort...")
         if sys.argv[2] == 'dot':
             nx.drawing.nx_pydot.write_dot(G, sys.argv[3])
         elif sys.argv[2] == 'adjlist':
