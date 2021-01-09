@@ -108,7 +108,7 @@ $ python solutions/sorted_value_per_weight.py data/ks_1000_0
 bb_head.py as an attribute called *build_tree* that, when it's True, it saves the tree in Pickle format while performing the search. Then, two additional scripts can be used for plotting the tree:
 
  - *tree_convert.py*: converts the generated Pickle file into several other formats, including dot graphviz.
- - *tree_plot.py*: plot the tree using Networkx, graphviz, and plotly. 
+ - *tree_plot.py*: plot the tree using Networkx, graphviz, and plotly. Plotly is interactive, begin able to check the value of each node.
 
 # Profiling
 
