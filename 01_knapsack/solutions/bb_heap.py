@@ -439,7 +439,8 @@ class Heap:
             # if the estimate is worst than the best value found so far,
             # then there is no need to continue searching this branch. 
             else:
-                G.nodes[titem.iter]['color'] = 'aquamarine'
+                if build_tree:
+                    G.nodes[titem.iter]['color'] = 'aquamarine'
                 # if the left is still None, then the current node was assigned to the right
                 if self.lifo[0].left == None:
                     # it means end of the search via the right side, but the left side was not searched yet
