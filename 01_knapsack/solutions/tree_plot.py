@@ -78,7 +78,7 @@ def plotly_tree(G, layout, title = '', edge_legend='', node_legend='',
 
     # create the nodes
     traceRecode = []
-    start_nodes = time.time()
+    start_time = time.time()
     node_trace = go.Scatter(x=[], y=[], text=[], 
                             mode='markers+text', 
                             textposition="bottom center",
@@ -101,7 +101,6 @@ def plotly_tree(G, layout, title = '', edge_legend='', node_legend='',
                                 # )
                             )
                         )
-    end_nodes = time.time()
 
     # populating the nodes
     # zip split the tuple into 2 vectors
@@ -112,9 +111,10 @@ def plotly_tree(G, layout, title = '', edge_legend='', node_legend='',
     node_trace['hovertemplate'] = node_hover_template
     node_trace.marker.color = list(nx.get_node_attributes(G,'color').values())
     node_trace['customdata'] = node_customdata
+    node_time = time.time() - start_time
 
     # creating the edges
-    start_edges = time.time()
+    start_time = time.time()
     for edge in G.edges:
         x0, y0 = G.nodes[edge[0]]['pos']
         x1, y1 = G.nodes[edge[1]]['pos']
@@ -132,11 +132,10 @@ def plotly_tree(G, layout, title = '', edge_legend='', node_legend='',
         #    showarrow=True,
         #    arrowhead=1)
         traceRecode.append(trace)
-    end_edges = time.time()
+    edge_time = time.time() - start_time
     
+    start_time = time.time()
     traceRecode.append(node_trace)
-
-    start_fig = time.time()
     fig = go.Figure(
                 #data=[edge_trace, middle_hover_trace, node_trace],
                 data=traceRecode,
@@ -149,7 +148,9 @@ def plotly_tree(G, layout, title = '', edge_legend='', node_legend='',
                     xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                     yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
                     )
-    end_fig = time.time()
+    fig_time = time.time() - start_time
+
+    #print ("TIMES:", node_time, edge_time, fig_time)
 
     return fig
 
@@ -213,6 +214,9 @@ if __name__ == '__main__':
         G = nx.read_gpickle(sys.argv[1])
         pos = None
         print ("ploting a tree of", G.number_of_nodes(), "nodes ...")
+        if G.number_of_nodes() > 1000:
+            print ("WARNING: the tree is very big. You will probably run out of memory!")
+            input("Press any to continue or CTRL+C to abort...")
         if sys.argv[2] == 'twopi':
             pos = graphviz_layout(G, prog="twopi")
         elif sys.argv[2] == 'dot':
