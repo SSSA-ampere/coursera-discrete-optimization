@@ -47,21 +47,6 @@ array [STEP] of var POS: goat;
 array [STEP] of var POS: cabbage;
 array [STEP] of var POS: wolf;
 
-% 0 farmer, 1 goat, 2 cabbage, 3 wolf
-% 0 goat, 1 cabbage, 2 wolf
-%array [3,STEP] of var POS: actors;
-
-% inital position, everybody is on the left
-predicate initial(array [STEP] of var POS: item) = 
-  item[1] = Left /\ item[maxstep] = Right;
-% why in the hell the model needs the above line and not the one below ?
-%    item[1] = Left ;
-
-constraint initial(farmer);
-constraint initial(cabbage);
-constraint initial(goat);
-constraint initial(wolf);
-
 % if the cabbage and the goat are in the same side, then must also be the farmer
 constraint forall(i in STEP)(
   cabbage[i] = goat[i] -> farmer[i] = cabbage[i]
@@ -90,6 +75,14 @@ constraint forall(s in 1..maxstep-1) (
 constraint forall(s in 1..maxstep-1) (
   moves(goat,s) -> goat[s] = farmer[s] /\ moves(farmer,s) /\  stays(wolf,s) /\  stays(cabbage,s)
 );
+
+% the initial position
+constraint farmer[1] = Left /\ goat[1] = Left /\ cabbage[1] = Left /\ wolf[1] = Left ;
+
+
+% the goal
+constraint farmer[maxstep] = Right /\ goat[maxstep] = Right /\ cabbage[maxstep] = Right /\ wolf[maxstep] = Right ;
+
 
 
 output ["Farmer  = \(farmer)\n"];
