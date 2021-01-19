@@ -6,3 +6,19 @@
 %  Louie: "Dewey and I are not both guilty."
 
 % Their uncle,  knowing that they are cub scouts, realises that they cannot tell a lie. Has he got sufficient infromation to decide who (if any) are guilty ? Model the problem as Boolean constratins, and decide.
+
+% solution: none of the is guilty
+% 0, 0, 0
+
+% 0 is not guilty, 1 is guilty
+var 0..1: h;
+var 0..1: d;
+var 0..1: l;
+
+constraint d = l;
+constraint h = 1 -> d = 1;
+%constraint d = l <-> l = 0;
+constraint d+l < 2;
+
+output ["\(h), \(d), \(l)\n"];
+
