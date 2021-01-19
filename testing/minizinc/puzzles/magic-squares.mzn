@@ -17,37 +17,28 @@
 % as a task of finding a solution to a CSP.
 
 % the obtained result for n=4 is 
-% sums  = [39, 39, 39, 39, 39, 39, 39, 39, 39, 39]
-% 18 2 7 12 
-% 10 1 13 15 
-% 6 9 16 8 
-% 5 27 3 4 
+% sums  = [34, 34, 34, 34, 34, 34, 34, 34, 34, 34]
+% 4 9 7 14 
+% 5 16 2 11 
+% 10 3 13 8 
+% 15 6 12 1
 
 % the obtained result for n=5 is 
-% sums  = [77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77]
-% 3 5 35 4 30 
-% 13 31 11 10 12 
-% 17 18 1 14 27 
-% 16 8 7 40 6 
-% 28 15 23 9 2 
+% sums  = [65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65]
+% 21 3 13 5 23 
+% 6 17 15 19 8 
+% 9 25 1 10 20 
+% 11 4 14 24 12 
+% 18 16 22 7 2 
 
-% the obtained result for n=6 is 
-% sums  = [165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165, 165]
-% 104 16 14 9 4 18 
-% 15 42 20 61 2 25 
-% 13 22 7 6 59 58 
-% 12 23 88 8 5 29 
-% 11 41 19 57 3 34 
-% 10 21 17 24 92 1 
-
-% for n>7, the execution time becomes too big
+% for n>5, the execution time becomes too big, i.e. more than 2 min
 
 include "alldifferent.mzn";
 
-int: n=5;
+int: n=6;
 
 % the max value cannot be bigger than pow(n,2)*n, i.e., all values having the max value
-array [1..n,1..n] of var 1..pow(n,2)*n: m;
+array [1..n,1..n] of var 1..pow(n,2): m;
 array [1..2*n+2] of var 1..pow(n,2)*n: s;
 
 constraint alldifferent(m);
@@ -71,8 +62,8 @@ constraint s[2*n+2] = sum(i in 1..n)(m[n-i+1,i]);
 
 
 % all positions of s must be equal
-constraint forall (i,j in 1..2*n+2)(
-    s[i] = s[j]
+constraint forall (
+    [s[i] = s[j] | i,j in 1..2*n+2 where i < j]
 );
 
 output ["sums  = \(s)\n"];
