@@ -6,6 +6,15 @@ These are examples I did only to get acquainted with the language. Most of these
  - *manual-examples*: these are the examples in the MiniZinc Handbook manual;
  - *puzzles*: these are solutions for puzzles taken from the internet or puzzle books.
 
+## List of Minizinc models
+
+ - [An extensive list of problems solved with minizinc](http://www.hakank.org/minizinc/)
+
+## Scheduling models with MiniZinc
+
+ - http://hakank.org/minizinc/scheduling_with_multiple_workers.mzn
+
+
 # References
 
 ## List of puzzle books
@@ -22,6 +31,8 @@ These are examples I did only to get acquainted with the language. Most of these
 
 ## Links with puzzles
 
+ - https://mathworld.wolfram.com/topics/RecreationalMathematics.html
+ - [New Scientist‘s Enigma puzzles.](https://enigmaticcode.wordpress.com/list-of-enigma-puzzles/)
  - https://www.getriddles.com/math-riddles/
  - https://www.mathwarehouse.com/riddles/math-riddles.php
  - https://www.riddlesandanswers.com/tag/math-brain-teasers/
@@ -52,3 +63,6 @@ These are examples I did only to get acquainted with the language. Most of these
  - Kurt Smith. Math logic puzzles. 1996
 
 
+## Scheduling problems with CP
+
+ - Baptiste, Philippe. Constraint-Based Scheduling: Applying Constraint Programming to Scheduling Problems. 2001

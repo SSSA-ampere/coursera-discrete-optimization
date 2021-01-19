@@ -1,6 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# solver adapted to run minizinc
+# https://github.com/discreteoptimization/setcover/blob/master/minizinc_001/solver.py
+
 
 def solve_it(input_data):
     # Modify this code to run your optimization algorithm

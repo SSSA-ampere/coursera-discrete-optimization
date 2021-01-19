@@ -23,6 +23,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+# solver adapted to run minizinc
+# https://github.com/discreteoptimization/setcover/blob/master/minizinc_001/solver.py
+
 
 from collections import namedtuple
 
