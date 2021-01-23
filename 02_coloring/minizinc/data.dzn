@@ -1,0 +1,5 @@
+% automatically generated Minizinc data file
+nbNodes = 4;
+nbEdges = 3;
+edges1 = [ 0, 1, 1];
+edges2 = [ 1, 2, 3];
