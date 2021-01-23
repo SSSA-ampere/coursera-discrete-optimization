@@ -6,6 +6,11 @@ These are examples I did only to get acquainted with the language. Most of these
  - *manual-examples*: these are the examples in the MiniZinc Handbook manual;
  - *puzzles*: these are solutions for puzzles taken from the internet or puzzle books.
 
+
+Wallace, Mark. Building Decision Support Systems: Using MiniZinc. Springer Nature, 2020.
+
+
+
 ## List of Minizinc models
 
  - [An extensive list of problems solved with minizinc](http://www.hakank.org/minizinc/)

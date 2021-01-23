@@ -8,6 +8,11 @@
 % 4 - Japan, painter, zebra, green, coffee
 % 5 - Spain, violinist, dog, white, juice
 
+% problem also in 
+% Wallace, Mark. Building Decision Support Systems: Using MiniZinc. Springer Nature, 2020.
+% 8.3.1 A Simple Predicate and a Simple Function
+
+
 include "alldifferent.mzn";
 
 enum color = {red, yellow, green, white, blue};
