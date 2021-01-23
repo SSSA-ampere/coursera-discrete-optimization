@@ -41,3 +41,13 @@ constraint alldifferent(i in 1..2*n)(pos[i] - i);
 output [show(pos) ++ "\n"];
 output ["white queens: " ++ show(posW) ++ "\n"];
 output ["black queens: " ++ show(posB) ++ "\n"];
+
+output [ if fix(pos[j]) == i then 
+            if j <= n then "W" 
+            else "B" 
+            endif 
+         else "." 
+         endif ++
+         if j == 2*n then "\n" 
+         else "" 
+         endif | i,j in 1..2*n]
