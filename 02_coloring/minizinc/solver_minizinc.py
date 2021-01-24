@@ -92,7 +92,7 @@ import math
 import random
 import time
 
-DEBUG = True
+DEBUG = False
 
 def solve_it(input_data):
     # parse the input
@@ -139,48 +139,18 @@ def solve_it(input_data):
         print ('med_degree:', med_degree)
     lb = len(max_clique)
     # the 1st atempt is to use the median as upper bound instead of the true upper bound max_degree
-    initial_step = 3
-    ub = min(lb+initial_step, med_degree)
-    step = initial_step
-    timeout = 10
-    while_abort = False
-    solution_found = False
-    satisfied = False
-    aborted = False
-    while not while_abort:
-        if aborted:
-            # if the current execution is too long, then reduce the ub and the step 
-            # until reaching an acceptable execution time of find out that it's not possible 
-            # to run the model with the current timeout
-            if step > 1 and satisfied:
-                step -= 1
-                ub = lb + step
-            else:
-                # if lb + 2*initial_step < max_degree:
-                #     ub = lb + 2*initial_step+1
-                #     lb = lb + initial_step+1
-                # elif lb < max_degree:
-                #     ub = max_degree
-                #     lb = lb + initial_step+1
-                # else:
-                if lb > max_degree:
-                    # abort because all reached the true upper bound. nothing else to search
-                    print ("upper bound reached and no solution was found")
-                    while_abort = True
-                    break
-                ub = min(lb + 2*initial_step+1, max_degree)
-                lb = lb + initial_step+1
-        else:
-            print("NOT ABOOOORTED!")
-
+    ub = lb
+    timeout = 30
+    # the states are 'timeout', 'nsat', 'sat'
+    minizinc_state = None
+    while True:
         if DEBUG:
-            print ("running with lb:", lb, "and ub:", ub, 'step:', step)
+            print ("running with lb:", lb, "and ub:", ub)
         # generate MiniZinc data file
         data_file = "data.dzn"
         generateMinizincDataFile(node_count, edge_count, lb, ub, edges, data_file)
 
         # solve with Minizinc's MIP solver (CBC of COIN-OR)
-        aborted = False
         minizinc_proc = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
                 stdout=PIPE, stderr=PIPE)
         try:
@@ -188,16 +158,12 @@ def solve_it(input_data):
         except TimeoutExpired as exc:
             minizinc_proc.kill()
             time.sleep(1)
-            aborted = True
-            if DEBUG:
-                print ('Timeout!')
+            minizinc_state = 'timeout'
         # any other exception
         except Exception as e:
             minizinc_proc.kill()
             time.sleep(1)
-            aborted = True
-            if DEBUG:
-                print ('Unknown error!')
+            minizinc_state = 'exception'
         else:
             aborted = False
             # solution found, can abort the while loop
@@ -208,26 +174,38 @@ def solve_it(input_data):
             satisfied = str(stdout, 'utf-8')
             lines = satisfied.split('\n')
             # continue the search if it is not satisfied with these bounds
-            if 'UNSATISFIABLE' not in lines[0]:
-                while_abort = True
-                solution_found = True
-                satisfied = False
-                break
+            if 'UNSATISFIABLE' in lines[0]:
+                minizinc_state = 'nsat'
             else:
-                satisfied = True
+                minizinc_state = 'sat'
 
-        # if not aborted:
-        #     lb += step
-    # print error messages if there are any 
-    #print (stderr)
+        if minizinc_state == 'timeout':
+            # the problem is too big for this time out
+            print ("It wasnt possible to execute with the timeout,", timeout)
+            break
+        elif minizinc_state == 'exception':
+            print ("Unknown error occured")
+            break
+        elif minizinc_state == 'nsat':
+            if lb < max_degree:
+                lb +=1
+                ub +=1
+            else:
+                # abort because all reached the true upper bound. nothing else to search
+                print ("upper bound reached and no solution was found")
+                break
+        else:
+            # solution found !
+            break
 
     output_data = None
-    if solution_found:
+    if minizinc_state == 'sat':
         # extract the solution from standard-out
         colors, solution = extractSolution(stdout,node_count)
 
-        # generate the colored graph
-        graph_dot(G, int(colors), solution)
+        if DEBUG:
+            # generate the colored graph
+            graph_dot(G, int(colors), solution)
 
         # prepare the solution in the specified output format
         output_data = str(colors) + ' ' + str(1) + '\n'
