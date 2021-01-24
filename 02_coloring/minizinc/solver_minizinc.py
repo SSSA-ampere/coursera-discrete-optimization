@@ -84,7 +84,7 @@
 
 import os
 from threading import Timer
-from subprocess import Popen, check_output, PIPE
+from subprocess import Popen, check_output, PIPE, TimeoutExpired
 import networkx as nx
 from networkx.algorithms.approximation import clique
 import statistics 
@@ -142,19 +142,19 @@ def solve_it(input_data):
     timeout = 10
     aborted = False
     process = None
+    stdout = None
+    stderr = None
+    global_exitcode = None
     minizinc_proc = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
                    stdout=PIPE, stderr=PIPE)
     try:
         #x=subprocess.check_output(command, shell=True, timeout=5)
         (stdout, stderr) = minizinc_proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
-        print("Command timed out: {}".format(exc))
+    except TimeoutExpired as exc:
         minizinc_proc.kill()
-        #(stdout, stderr) = minizinc_proc.communicate()
-        global_exitcode = minizinc_proc.returncode        
         aborted = True
-    else:
-        print (process)    
+    #else:
+    #    print (process)    
     #process = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
     #                stdout=PIPE, stderr=PIPE)
     # ALTERNATIVE_1: solve with Minizinc's CP solver
@@ -171,12 +171,16 @@ def solve_it(input_data):
 
     # print error messages if there are any 
     #print (stderr)
-    # extract the solution from standard-out
-    colors, solution = extractSolution(stdout,node_count)
+    output_data = None
+    if not aborted:
+        # extract the solution from standard-out
+        colors, solution = extractSolution(stdout,node_count)
 
-    # prepare the solution in the specified output format
-    output_data = str(colors) + ' ' + str(1) + '\n'
-    output_data += ' '.join(map(str, solution))
+        # prepare the solution in the specified output format
+        output_data = str(colors) + ' ' + str(1) + '\n'
+        output_data += ' '.join(map(str, solution))
+    else:
+        print ("Aborted!")
 
     return output_data
 
