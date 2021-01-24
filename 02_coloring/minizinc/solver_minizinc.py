@@ -92,7 +92,7 @@ import math
 import random
 #import time
 
-DEBUG = True
+DEBUG = False
 
 def solve_it(input_data):
     # parse the input
@@ -116,12 +116,11 @@ def solve_it(input_data):
     stderr = None
 
     # find the max_clique as a lower bound. at least this number of colors are required
-    max_clique = [1]
-    if node_count <= 500:
-        # not recommended for graphs with more than 500 nodes
-        max_clique = clique.max_clique(G)
+    #max_clique = gen_cliques(G)
+    #max_clique = gen_cliques2(G)
+    max_clique = gen_cliques3(G)
     if DEBUG:
-        print ('max_clique:', len(max_clique), max_clique)
+        print ('max_clique:', max_clique)
         
     # According to the book: "A Guide to Graph Colouring: Algorithms and Applications", 
     #  Section '2.2.2 Upper bounds',  the max degree can be used as an upper bound
@@ -133,7 +132,7 @@ def solve_it(input_data):
     max_degree = max(degrees)
     if DEBUG:
         print ('max_degree:', max_degree, degrees)
-    lb = len(max_clique)
+    lb = max_clique
     ub = lb
     timeout = 30
     # the states are 'timeout', 'nsat', 'sat'
@@ -221,6 +220,126 @@ def nxGraph(edges):
         G.add_edge(e[0], e[1])
     
     return G
+
+###################################################################################
+def gen_cliques(G):
+
+    # reading the minizinc template to insert the clique constraints
+    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
+    mzn_data = ''.join(mzn_tpl_file.readlines())
+    mzn_tpl_file.close()
+    lines = mzn_data.split('\n')
+
+    # searching the cliques in G
+    cliques = []
+    max_clique = [1]
+    if G.number_of_nodes() <= 500:
+        # not recommended for graphs with more than 500 nodes
+        #max_clique = clique.max_clique(G)
+        cliques = list(nx.algorithms.clique.find_cliques(G))
+    print ('n cliques:', len(cliques))
+
+    i = 0
+    line_pos = 0
+    for l in lines:
+        if 'PUT_CLIQUES_HERE' in l:
+            del(lines[i])
+            line_pos = i
+            break
+        i +=1
+
+    for clique in cliques:
+        print (clique)
+        alldiff='['
+        j=0
+        for n in clique:
+            alldiff +='colors['+str(n)+']'
+            if j < len(clique)-1:
+                alldiff +=','
+            j +=1
+        alldiff +=']'
+        lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
+
+    # create the minizinc model with the alldifferent constraints
+    mzn_tpl_file = open('graphColoring.mzn', 'w')
+    for item in lines:
+        mzn_tpl_file.write("%s\n" % item)
+    mzn_tpl_file.close()
+
+
+    return len(max_clique)
+
+###################################################################################
+def gen_cliques2(G):
+
+    # reading the minizinc template to insert the clique constraints
+    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
+    mzn_data = ''.join(mzn_tpl_file.readlines())
+    mzn_tpl_file.close()
+    lines = mzn_data.split('\n')
+
+    # searching the cliques in G
+    max_clique = [1]
+    if G.number_of_nodes() <= 500:
+        # not recommended for graphs with more than 500 nodes
+        max_clique = clique.max_clique(G)
+
+    # create the minizinc model with the alldifferent constraints
+    mzn_tpl_file = open('graphColoring.mzn', 'w')
+    for item in lines:
+        mzn_tpl_file.write("%s\n" % item)
+    mzn_tpl_file.close()
+
+    return len(max_clique)
+
+###################################################################################
+def gen_cliques3(G):
+
+    # reading the minizinc template to insert the clique constraints
+    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
+    mzn_data = ''.join(mzn_tpl_file.readlines())
+    mzn_tpl_file.close()
+    lines = mzn_data.split('\n')
+
+    # searching the cliques in G
+    max_clique = [1]
+    if G.number_of_nodes() <= 500:
+        # not recommended for graphs with more than 500 nodes
+        max_clique = clique.max_clique(G)
+
+    i = 0
+    line_pos = 0
+    for l in lines:
+        if 'PUT_CLIQUES_HERE' in l:
+            del(lines[i])
+            line_pos = i
+            break
+        i +=1
+
+    # alldiff='['
+    # j=0
+    # for n in max_clique:
+    #     alldiff +='colors['+str(n)+']'
+    #     if j < len(max_clique)-1:
+    #         alldiff +=','
+    #     j +=1
+    # alldiff +=']'
+    # lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
+
+    j=0
+    for n in max_clique:
+        lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
+        j +=1
+
+
+    # create the minizinc model with the alldifferent constraints
+    mzn_tpl_file = open('graphColoring.mzn', 'w')
+    for item in lines:
+        mzn_tpl_file.write("%s\n" % item)
+    mzn_tpl_file.close()
+
+
+    return len(max_clique)
 
 ###################################################################################
 def graph_dot(G, colors, solution):

@@ -27,16 +27,10 @@ constraint forall(i in EDGES)(colors[edges1[i]] != colors[edges2[i]]);
 constraint nbColors = card({ colors[i] | i in NODES});
 
 % list of clique alldifferent constraints for the cliques
-constraint colors[62] = 6;
-constraint colors[52] = 5;
-constraint colors[8] = 4;
-constraint colors[39] = 3;
-constraint colors[33] = 2;
-constraint colors[0] = 1;
+% PUT_CLIQUES_HERE
 
 %solve minimize maxC;
 solve minimize nbColors;
 
 output ["\(nbColors)\n"];
 output [show(colors)];
-
