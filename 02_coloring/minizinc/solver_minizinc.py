@@ -92,7 +92,7 @@ import math
 import random
 #import time
 
-DEBUG = False
+DEBUG = True
 
 def solve_it(input_data):
     # parse the input
@@ -116,9 +116,9 @@ def solve_it(input_data):
     stderr = None
 
     # find the max_clique as a lower bound. at least this number of colors are required
-    #max_clique = gen_cliques(G)
+    max_clique = gen_cliques(G)
     #max_clique = gen_cliques2(G)
-    max_clique = gen_cliques3(G)
+    #max_clique = gen_cliques3(G)
     if DEBUG:
         print ('max_clique:', max_clique)
         
@@ -235,7 +235,7 @@ def gen_cliques(G):
     max_clique = [1]
     if G.number_of_nodes() <= 500:
         # not recommended for graphs with more than 500 nodes
-        #max_clique = clique.max_clique(G)
+        max_clique = clique.max_clique(G)
         cliques = list(nx.algorithms.clique.find_cliques(G))
     print ('n cliques:', len(cliques))
 
@@ -248,13 +248,13 @@ def gen_cliques(G):
             break
         i +=1
 
-    for clique in cliques:
-        print (clique)
+    for c in cliques:
+        print (c)
         alldiff='['
         j=0
-        for n in clique:
+        for n in c:
             alldiff +='colors['+str(n)+']'
-            if j < len(clique)-1:
+            if j < len(c)-1:
                 alldiff +=','
             j +=1
         alldiff +=']'
@@ -306,6 +306,7 @@ def gen_cliques3(G):
     if G.number_of_nodes() <= 500:
         # not recommended for graphs with more than 500 nodes
         max_clique = clique.max_clique(G)
+        print (max_clique)
 
     i = 0
     line_pos = 0
