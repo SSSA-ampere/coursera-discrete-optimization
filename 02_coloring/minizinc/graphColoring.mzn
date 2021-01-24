@@ -18,7 +18,7 @@ array [EDGES] of NODES: edges2;
 array [NODES] of var 1..ubc: colors;
 
 % the total number of different 'colors' in the array colors
-var NODES: nbColors;
+var lbc..ubc: nbColors;
 %var NODES: maxC;
 
 % neighbor nodes cannot have the same color
@@ -34,7 +34,7 @@ constraint nbColors = card({ colors[i] | i in NODES});
 %constraint forall(i in 1..nbColors, j in 2..nbColors-1)( i < j /\ sum({ colors[k] = i | k in NODES}) >= sum({ colors[k] = j | k in NODES}))
 
 % put bounds in the search
-constraint nbColors >= lbc /\ nbColors <= ubc;
+%constraint nbColors >= lbc /\ nbColors <= ubc;
 %constraint maxC >= lbc /\ maxC <= ubc;
 
 %solve minimize maxC;
