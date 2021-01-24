@@ -84,6 +84,8 @@
 
 import os
 from subprocess import Popen, PIPE
+import networkx as nx
+from networkx.algorithms.approximation import clique
 
 def solve_it(input_data):
     # parse the input
@@ -98,14 +100,22 @@ def solve_it(input_data):
         parts = lines[i].split()
         edges.append((int(parts[0]), int(parts[1])))
 
-    #print (node_count, edge_count)
-    #print (edges)
+    # generate NetworkX graph
+    G = nxGraph(edges)
+    # find the max_clique as a lower bound. at least this number of colors are required
+    max_clique = clique.max_clique(G)
+    print ('max_clique:', len(max_clique), max_clique)
+    # according to , sec 2.2.2 Upper bounds
+    # the max degree can be used as an upper bound
+    degrees = [0]*node_count
+    for node in range(node_count):
+        degrees.append(G.degree(node)+1)
+    max_degree = max(degrees)
+    print ('max_degree:', max_degree, degrees)
+
     # generate MiniZinc data file
     data_file = "data.dzn"
-    generateMinizincDataFile(node_count, edge_count, edges, data_file)
-
-    # specify here how many solutions the solver should maximally search for ('0' means all)
-    nb_solutions = 10
+    generateMinizincDataFile(node_count, edge_count, len(max_clique), max_degree, edges, data_file)
 
     # solve with Minizinc's MIP solver (CBC of COIN-OR)
     process = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
@@ -133,13 +143,23 @@ def solve_it(input_data):
 
     return output_data
 
+# ##################################################################################
+def nxGraph(edges):
+    G = nx.Graph()
+
+    for e in edges:
+        G.add_edge(e[0], e[1])
+    
+    return G
+
 
 # ##################################################################################
-#def generateMinizincDataFile(item_count, set_count, sets, data_file):
-def generateMinizincDataFile(node_count, edge_count, edges, data_file):
+def generateMinizincDataFile(node_count, edge_count, lb, ub, edges, data_file):
     tmpFile = open(data_file, 'w')
     
     out = "% automatically generated Minizinc data file\n"
+    out += "ubc = " + str(ub)+ ";\n"
+    out += "lbc = " + str(lb)+ ";\n"
     out += "nbNodes = " + str(node_count)+ ";\n"
     out += "nbEdges = " + str(edge_count)+ ";\n"
     out += "edges1 = [ " 
