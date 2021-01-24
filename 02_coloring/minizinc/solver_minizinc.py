@@ -82,7 +82,7 @@
 # solver adapted to run minizinc
 # https://github.com/discreteoptimization/setcover/blob/master/minizinc_001/solver.py
 
-import os
+import os, signal
 from subprocess import Popen, check_output, PIPE, TimeoutExpired
 import networkx as nx
 from networkx.algorithms.approximation import clique
@@ -90,9 +90,9 @@ import matplotlib.pyplot as plt
 import statistics 
 import math
 import random
-import time
+#import time
 
-DEBUG = False
+DEBUG = True
 
 def solve_it(input_data):
     # parse the input
@@ -114,8 +114,6 @@ def solve_it(input_data):
     process = None
     stdout = None
     stderr = None
-    global_exitcode = None
-
 
     # find the max_clique as a lower bound. at least this number of colors are required
     max_clique = [1]
@@ -133,12 +131,9 @@ def solve_it(input_data):
     #remove the zeros from the list
     while 0 in degrees: degrees.remove(0)
     max_degree = max(degrees)
-    med_degree = int(math.ceil(statistics.median(degrees)))
     if DEBUG:
         print ('max_degree:', max_degree, degrees)
-        print ('med_degree:', med_degree)
     lb = len(max_clique)
-    # the 1st atempt is to use the median as upper bound instead of the true upper bound max_degree
     ub = lb
     timeout = 30
     # the states are 'timeout', 'nsat', 'sat'
@@ -156,13 +151,14 @@ def solve_it(input_data):
         try:
             (stdout, stderr) = minizinc_proc.communicate(timeout=timeout)
         except TimeoutExpired as exc:
+            os.killpg(os.getpgid(minizinc_proc.pid), signal.SIGTERM) 
             minizinc_proc.kill()
-            time.sleep(1)
+            #time.sleep(1)
             minizinc_state = 'timeout'
         # any other exception
         except Exception as e:
             minizinc_proc.kill()
-            time.sleep(1)
+            #time.sleep(1)
             minizinc_state = 'exception'
         else:
             aborted = False
@@ -217,6 +213,8 @@ def solve_it(input_data):
 
 ###################################################################################
 def nxGraph(edges):
+    """ It generates a Networkx graph.
+    """
     G = nx.Graph()
 
     for e in edges:
@@ -226,6 +224,8 @@ def nxGraph(edges):
 
 ###################################################################################
 def graph_dot(G, colors, solution):
+    """ It generates graphviz graphs.
+    """
 
     if DEBUG:
         print ('writing the graph ...')
@@ -253,12 +253,10 @@ def graph_dot(G, colors, solution):
 
     # transforms NetworkX into PyG AGraph
     A = nx.nx_agraph.to_agraph(G)
-    #print (A.to_string())
 
     for i in range(len(solution)):
         n=A.get_node(i)
         color_code = solution[i]-1
-        #print ('2:',n, solution[n], selected_colors[color_code] )
         n.attr['fillcolor'] = selected_colors[color_code]
         n.attr['style']='filled'
 
@@ -278,14 +276,12 @@ def graph_dot(G, colors, solution):
     A.draw("graph.png")
 
 ###################################################################################
+# not working. it misses some form of auto color assignment
 def graph_pyplot(G, colors, solution):
 
     for n in G.nodes():
-        #print ('1:',n, solution[n] )
         color_code = solution[n]-1
-        #print ('2:',n, solution[n], selected_colors[color_code] )
         G.nodes[n]['color'] = selected_colors[color_code]
-        #print ('3:',n, solution[n], selected_colors[color_code] )
 
     nx.draw(G, with_labels = True) 
     plt.savefig("graph.svg") 
