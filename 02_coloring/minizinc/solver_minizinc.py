@@ -83,9 +83,13 @@
 # https://github.com/discreteoptimization/setcover/blob/master/minizinc_001/solver.py
 
 import os
-from subprocess import Popen, PIPE
+from threading import Timer
+from subprocess import Popen, check_output, PIPE
 import networkx as nx
 from networkx.algorithms.approximation import clique
+import statistics 
+import math
+
 
 def solve_it(input_data):
     # parse the input
@@ -102,7 +106,21 @@ def solve_it(input_data):
 
     # generate NetworkX graph
     G = nxGraph(edges)
+
+    # kill = lambda process: process.kill()
+    # cmd = ['ping', 'www.google.com']
+    # ping = subprocess.Popen(
+    #     cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # my_timer = Timer(5, kill, [ping])
+    # try:
+    #     my_timer.start()
+    #     stdout, stderr = ping.communicate()
+    # finally:
+    #     my_timer.cancel()
+
+
     # find the max_clique as a lower bound. at least this number of colors are required
+    # not recommended for graphs with more than 500 nodes
     max_clique = clique.max_clique(G)
     print ('max_clique:', len(max_clique), max_clique)
     # according to , sec 2.2.2 Upper bounds
@@ -110,7 +128,10 @@ def solve_it(input_data):
     degrees = [0]*node_count
     for node in range(node_count):
         degrees.append(G.degree(node)+1)
+    #remove the zeros from the list
+    while 0 in degrees: degrees.remove(0)
     max_degree = max(degrees)
+    max_degree = int(math.ceil(statistics.median(degrees)))
     print ('max_degree:', max_degree, degrees)
 
     # generate MiniZinc data file
@@ -118,8 +139,24 @@ def solve_it(input_data):
     generateMinizincDataFile(node_count, edge_count, len(max_clique), max_degree, edges, data_file)
 
     # solve with Minizinc's MIP solver (CBC of COIN-OR)
-    process = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
-                    stdout=PIPE, stderr=PIPE)
+    timeout = 10
+    aborted = False
+    process = None
+    minizinc_proc = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
+                   stdout=PIPE, stderr=PIPE)
+    try:
+        #x=subprocess.check_output(command, shell=True, timeout=5)
+        (stdout, stderr) = minizinc_proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        print("Command timed out: {}".format(exc))
+        minizinc_proc.kill()
+        #(stdout, stderr) = minizinc_proc.communicate()
+        global_exitcode = minizinc_proc.returncode        
+        aborted = True
+    else:
+        print (process)    
+    #process = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
+    #                stdout=PIPE, stderr=PIPE)
     # ALTERNATIVE_1: solve with Minizinc's CP solver
     # process = Popen(['mzn-g12fd', '-n', str(nb_solutions),'setCovering.mzn', 'data.dzn'],
     #                stdout=PIPE, stderr=PIPE)
@@ -130,7 +167,7 @@ def solve_it(input_data):
     # process = Popen(['mzn-gecode', '-n', str(nb_solutions),'setCovering.mzn', 'data.dzn'],
     #                stdout=PIPE, stderr=PIPE)
 
-    (stdout, stderr) = process.communicate()
+    #(stdout, stderr) = minizinc_proc.communicate()
 
     # print error messages if there are any 
     #print (stderr)
