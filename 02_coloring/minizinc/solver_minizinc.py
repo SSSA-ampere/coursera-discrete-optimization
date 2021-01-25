@@ -205,9 +205,9 @@ def solve_it(input_data):
         # extract the solution from standard-out
         colors, solution = extractSolution(stdout,node_count)
 
-        if DEBUG:
-            # generate the colored graph
-            graph_dot(G, int(colors), solution)
+        # if DEBUG:
+        #     # generate the colored graph
+        #     graph_dot(G, int(colors), solution)
 
         # prepare the solution in the specified output format
         output_data = str(colors) + ' ' + str(1) + '\n'
@@ -244,6 +244,7 @@ def gen_cliques(G):
         # not recommended for graphs with more than 500 nodes
         max_clique = clique.max_clique(G)
         cliques = list(nx.algorithms.clique.find_cliques(G))
+    print (type(cliques[0]))
 
     i = 0
     line_pos = 0
@@ -274,28 +275,57 @@ def gen_cliques(G):
     #     print (i)
 
 
-    # check if the cliques are adjacents
-    # check if any node of clique1 is connected to any node of clique2
-    no_adj_clique = []
-    for c1 in range(len(sorted_cliques)-1):
-        for c2 in range(c1+1,len(sorted_cliques)):
-            adj = False
-            for c1i in sorted_cliques[c1]:
-                for c2i in sorted_cliques[c2]:
-                    if G.has_edge(c1i,c2i):
-                        adj = True
-                        break
-                if adj:
-                    break
-            if not adj:
-                print ("not adjacents:")
-                print (sorted_cliques[c1])
-                print (sorted_cliques[c2])
-                no_adj_clique.append((sorted_cliques[c1],sorted_cliques[c2]))
+    # # check if there is only one difference among the cliques to increase the # of defined nodes
+    # for c1 in sorted_cliques:
+    #     if len(c1) == len(max_clique):
+    #         set1 = set(c1)
+    #         inter = set1.intersection(max_clique)
+    #         diff1 = list(set1.difference(inter))
+    #         diff2 = list(max_clique.difference(inter))
+    #         if len(diff1) == 1 and len(diff2) == 1:
+    #             # print ("DIFF")
+    #             # print (max_clique,c1)
+    #             # print (inter, diff1, diff2)
+    #             lines.insert(line_pos,'constraint colors[%d] == colors[%d];' % (diff1[0], diff2[0]))
 
-    print ("NOT ADJCENT CLIQUES:", len(no_adj_clique))
-    for i in no_adj_clique:
-        print (i[0], i[1])
+    # # check if there is only one difference among the cliques to increase the # of defined nodes
+    # no_adj_clique = []
+    # for c1 in range(len(sorted_cliques)-1):
+    #     for c2 in range(c1+1,len(sorted_cliques)):
+    #         if len(sorted_cliques[c1]) == len(max_clique) and len(sorted_cliques[c2]) == len(max_clique):
+    #             set1 = set(sorted_cliques[c1])
+    #             set2 = set(sorted_cliques[c2])
+    #             inter = set1.intersection(set2)
+    #             diff1 = list(set1.difference(inter))
+    #             diff2 = list(set2.difference(inter))
+    #             if len(diff1) == 1 and len(diff2) == 1:
+    #                 print ("DIFF")
+    #                 print (sorted_cliques[c1],sorted_cliques[c2])
+    #                 print (inter, diff1, diff2)
+    #                 lines.insert(line_pos,'constraint colors[%d] == colors[%d];' % (diff1[0], diff2[0]))
+
+    # # check if the cliques are adjacents
+    # # check if any node of clique1 is connected to any node of clique2
+    # no_adj_clique = []
+    # for c1 in range(len(sorted_cliques)-1):
+    #     for c2 in range(c1+1,len(sorted_cliques)):
+    #         adj = False
+    #         for c1i in sorted_cliques[c1]:
+    #             for c2i in sorted_cliques[c2]:
+    #                 if G.has_edge(c1i,c2i):
+    #                     adj = True
+    #                     break
+    #             if adj:
+    #                 break
+    #         if not adj:
+    #             print ("not adjacents:")
+    #             print (sorted_cliques[c1])
+    #             print (sorted_cliques[c2])
+    #             no_adj_clique.append((sorted_cliques[c1],sorted_cliques[c2]))
+
+    # print ("NOT ADJCENT CLIQUES:", len(no_adj_clique))
+    # for i in no_adj_clique:
+    #     print (i[0], i[1])
 
 
     # # for all the rest of the cliques, assign alldifferent
@@ -690,8 +720,8 @@ if __name__ == '__main__':
         input_data_file = open(file_location, 'r')
         input_data = ''.join(input_data_file.readlines())
         input_data_file.close()
-        if DEBUG:
-            seriate(file_location)
+        #if DEBUG:
+        #    seriate(file_location)
         print ('Solving:', file_location)
         print (solve_it(input_data))
     else:
