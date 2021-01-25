@@ -92,7 +92,7 @@ import math
 import random
 #import time
 
-DEBUG = True
+DEBUG = False
 
 def solve_it(input_data):
     # parse the input
@@ -116,9 +116,9 @@ def solve_it(input_data):
     stderr = None
 
     # find the max_clique as a lower bound. at least this number of colors are required
-    max_clique = gen_cliques(G)
+    #max_clique = gen_cliques(G)
     #max_clique = gen_cliques2(G)
-    #max_clique = gen_cliques3(G)
+    max_clique = gen_cliques3(G)
     if DEBUG:
         print ('max_clique:', max_clique)
         
@@ -259,6 +259,7 @@ def gen_cliques(G):
     # for all the rest of the cliques, assign alldifferent
     list_good_cliques = []
     list_good_cliques.append(max_clique)
+    set_all_cliques = set()
     for c in cliques:
         #print (c)
         c = set(c)
@@ -272,10 +273,11 @@ def gen_cliques(G):
             if len(z) == 0:
                 print ('good clique:', c)
                 list_good_cliques.append(c)
-                j=0
-                for n in c:
-                    lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
-                    j +=1                
+                set_all_cliques = set_all_cliques.union(c)
+                # j=0
+                # for n in c:
+                #     lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
+                #     j +=1                
                 # alldiff='['
                 # j=0
                 # for n in c:
@@ -287,6 +289,21 @@ def gen_cliques(G):
                 # lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
 
     print ('\n\\n\n GOOD CLIQUES:', len(list_good_cliques))
+    print ('set_all_cliques:', len(set_all_cliques))
+    print (set_all_cliques)
+    cliques_dict = dict()
+    for i in range(len(set_all_cliques)):
+        cliques_dict[i] = 0
+    for i in range(len(set_all_cliques)-1):
+        for j in range(i+1, len(set_all_cliques)):
+            if G.has_edge(i,j):
+                cliques_dict[i] += 1
+                cliques_dict[j] += 1
+    
+    print ('DICTIONARY:')
+    for key in cliques_dict:
+        print (key, cliques_dict[key])
+
     for i in list_good_cliques:
         print (i)
 
@@ -336,7 +353,7 @@ def gen_cliques3(G):
     if G.number_of_nodes() <= 500:
         # not recommended for graphs with more than 500 nodes
         max_clique = clique.max_clique(G)
-        print (max_clique)
+        #print (max_clique)
 
     i = 0
     line_pos = 0

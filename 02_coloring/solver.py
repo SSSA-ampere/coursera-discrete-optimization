@@ -1,11 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
 # solver adapted to run minizinc
 # https://github.com/discreteoptimization/setcover/blob/master/minizinc_001/solver.py
 
+from minizinc.solver_minizinc import solve_it
 
-def solve_it(input_data):
+def solve_it2(input_data):
     # Modify this code to run your optimization algorithm
 
     # parse the input
@@ -31,8 +32,6 @@ def solve_it(input_data):
 
     return output_data
 
-
-import sys
 
 if __name__ == '__main__':
     import sys
