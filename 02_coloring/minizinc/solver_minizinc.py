@@ -123,9 +123,9 @@ def solve_it(input_data):
     stderr = None
 
     # find the max_clique as a lower bound. at least this number of colors are required
-    #max_clique = gen_cliques(G)
+    max_clique = gen_cliques(G)
     #max_clique = gen_cliques2(G)
-    max_clique = gen_cliques3(G)
+    #max_clique = gen_cliques3(G)
     if DEBUG:
         print ('max_clique:', max_clique)
         
@@ -271,7 +271,8 @@ def gen_cliques(G):
         #print (c)
         c = set(c)
         # skip the smaller cliques to avoid too many constraints
-        if len(c) == len(max_clique):
+        good_clique_sizes = range(len(max_clique)-3,len(max_clique)+1)
+        if len(c) in good_clique_sizes:
             z = {}
             for g in list_good_cliques:
                 z = g.intersection(c)
@@ -298,14 +299,16 @@ def gen_cliques(G):
     print ('\n\\n\n GOOD CLIQUES:', len(list_good_cliques))
     print ('set_all_cliques:', len(set_all_cliques))
     print (set_all_cliques)
+    # transfor the set into list
+    set_all_cliques = list(set_all_cliques)
     cliques_dict = dict()
     for i in range(len(set_all_cliques)):
-        cliques_dict[i] = 0
+        cliques_dict[set_all_cliques[i]] = 0
     for i in range(len(set_all_cliques)-1):
         for j in range(i+1, len(set_all_cliques)):
-            if G.has_edge(i,j):
-                cliques_dict[i] += 1
-                cliques_dict[j] += 1
+            if G.has_edge(set_all_cliques[i],set_all_cliques[j]):
+                cliques_dict[set_all_cliques[i]] += 1
+                cliques_dict[set_all_cliques[j]] += 1
     
     print ('DICTIONARY:')
     for key in cliques_dict:
@@ -313,6 +316,30 @@ def gen_cliques(G):
 
     for i in list_good_cliques:
         print (i)
+
+    # check if the cliques are adjacents
+    # check if any node of clique1 is connected to any node of clique2
+    no_adj_clique = []
+    for c1 in range(len(list_good_cliques)-1):
+        for c2 in range(c1+1,len(list_good_cliques)):
+            adj = False
+            for c1i in list_good_cliques[c1]:
+                for c2i in list_good_cliques[c2]:
+                    if G.has_edge(c1i,c2i):
+                        adj = True
+                        break
+                if adj:
+                    break
+            if not adj:
+                print ("not adjacents:")
+                print (list_good_cliques[c1])
+                print (list_good_cliques[c2])
+                no_adj_clique.append((list_good_cliques[c1],list_good_cliques[c2]))
+
+    print ("NOT ADJCENT CLIQUES:", len(no_adj_clique))
+    for i in no_adj_clique:
+        print (i[0], i[1])
+
 
     # create the minizinc model with the alldifferent constraints
     mzn_tpl_file = open('graphColoring.mzn', 'w')
@@ -577,12 +604,14 @@ def seriate(filename):
     #     print (i)
 
     # building the graph
+    seriation_ofile = open('seriated_graph.dat', 'w')
     G = nx.OrderedGraph()
     for i in sorted_nodes:
         node_id = i[0]
         for n in oG.adj[node_id]:
-            print (node_id, n)
             G.add_edge(node_id, n)
+            seriation_ofile.write("%d %d\n" % (node_id, n))
+    seriation_ofile.close()
         
     # uncheck it to see if the graphs are still the same    
     #graph_dot(G, 1, [1]*G.number_of_nodes(),'seriated_graph')
@@ -592,6 +621,7 @@ def seriate(filename):
         print ("both graphs are isomorphic")
 
     print ("seriated graph:")
+    print ([i[0] for i in sorted_nodes])
     print (G.number_of_nodes())
     print (G.number_of_edges())
 
