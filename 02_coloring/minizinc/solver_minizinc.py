@@ -92,7 +92,7 @@ import math
 import random
 #import time
 
-DEBUG = True
+DEBUG = False
 
 def solve_it(input_data):
     # parse the input
@@ -116,9 +116,9 @@ def solve_it(input_data):
     stderr = None
 
     # find the max_clique as a lower bound. at least this number of colors are required
-    max_clique = gen_cliques(G)
+    #max_clique = gen_cliques(G)
     #max_clique = gen_cliques2(G)
-    #max_clique = gen_cliques3(G)
+    max_clique = gen_cliques3(G)
     if DEBUG:
         print ('max_clique:', max_clique)
         
@@ -238,6 +238,8 @@ def gen_cliques(G):
         max_clique = clique.max_clique(G)
         cliques = list(nx.algorithms.clique.find_cliques(G))
     print ('n cliques:', len(cliques))
+    print ('[0]:', cliques[0])
+    print ('type:', type(cliques[0]))
 
     i = 0
     line_pos = 0
@@ -248,17 +250,41 @@ def gen_cliques(G):
             break
         i +=1
 
+    # assign the colors to the max_clique
+    j=0
+    for n in max_clique:
+        lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
+        j +=1
+
+    # for all the rest of the cliques, assign alldifferent
+    list_good_cliques = []
+    list_good_cliques.append(max_clique)
     for c in cliques:
-        print (c)
-        alldiff='['
-        j=0
-        for n in c:
-            alldiff +='colors['+str(n)+']'
-            if j < len(c)-1:
-                alldiff +=','
-            j +=1
-        alldiff +=']'
-        lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
+        #print (c)
+        c = set(c)
+        # skip the smaller cliques to avoid too many constraints
+        if len(c) == len(max_clique):
+            z = {}
+            for g in list_good_cliques:
+                z = g.intersection(c)
+                if len(z) != 0:
+                    break
+            if len(z) == 0:
+                print ('good clique:', c)
+                list_good_cliques.append(c)
+                alldiff='['
+                j=0
+                for n in c:
+                    alldiff +='colors['+str(n)+']'
+                    if j < len(c)-1:
+                        alldiff +=','
+                    j +=1
+                alldiff +=']'
+                lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
+
+    print ('\n\\n\n GOOD CLIQUES:', len(list_good_cliques))
+    for i in list_good_cliques:
+        print (i)
 
     # create the minizinc model with the alldifferent constraints
     mzn_tpl_file = open('graphColoring.mzn', 'w')
