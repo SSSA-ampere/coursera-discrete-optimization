@@ -397,7 +397,7 @@ def gen_cliques3(G):
     return len(max_clique)
 
 ###################################################################################
-def graph_dot(G, colors, solution):
+def graph_dot(G, colors, solution, filename='graph'):
     """ It generates graphviz graphs.
     """
 
@@ -445,9 +445,9 @@ def graph_dot(G, colors, solution):
         n.attr['style']='filled'
     A.add_subgraph(name='cluster1', nbunch= legend_nodes, label='legend', color = 'black', rank='same')
 
-    A.write("graph.dot")
+    A.write(filename+".dot")
     A.layout(prog='dot')
-    A.draw("graph.png")
+    A.draw(filename+".png")
 
 
 ###################################################################################
@@ -566,9 +566,15 @@ def seriate(filename):
         parts = l.split()
         sorted_nodes.append((int(parts[0]),int(parts[1])))
     sorted_nodes.sort(key=lambda a: a[1])
-    print ("sorted nodes")
-    for i in sorted_nodes:
-        print (i)
+
+    # save back the ordered seriation file
+    seriation_ofile = open('seriated.dat', 'w')
+    for item in sorted_nodes:
+        seriation_ofile.write("%d %d\n" % (item[0], item[1]))
+    seriation_ofile.close()
+    # print ("sorted nodes")
+    # for i in sorted_nodes:
+    #     print (i)
 
     # building the graph
     G = nx.OrderedGraph()
@@ -578,6 +584,12 @@ def seriate(filename):
             print (node_id, n)
             G.add_edge(node_id, n)
         
+    # uncheck it to see if the graphs are still the same    
+    #graph_dot(G, 1, [1]*G.number_of_nodes(),'seriated_graph')
+    if not nx.is_isomorphic(oG, G):
+        print ("ERROR: both graphs are not isomorphic")
+    else:
+        print ("both graphs are isomorphic")
 
     print ("seriated graph:")
     print (G.number_of_nodes())
