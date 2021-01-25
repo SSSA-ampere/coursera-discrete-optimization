@@ -244,9 +244,6 @@ def gen_cliques(G):
         # not recommended for graphs with more than 500 nodes
         max_clique = clique.max_clique(G)
         cliques = list(nx.algorithms.clique.find_cliques(G))
-    print ('n cliques:', len(cliques))
-    print ('[0]:', cliques[0])
-    print ('type:', type(cliques[0]))
 
     i = 0
     line_pos = 0
@@ -263,68 +260,28 @@ def gen_cliques(G):
         lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
         j +=1
 
-    # for all the rest of the cliques, assign alldifferent
-    list_good_cliques = []
-    list_good_cliques.append(max_clique)
-    set_all_cliques = set()
-    for c in cliques:
-        #print (c)
-        c = set(c)
-        # skip the smaller cliques to avoid too many constraints
-        good_clique_sizes = range(len(max_clique)-3,len(max_clique)+1)
-        if len(c) in good_clique_sizes:
-            z = {}
-            for g in list_good_cliques:
-                z = g.intersection(c)
-                if len(z) != 0:
-                    break
-            if len(z) == 0:
-                print ('good clique:', c)
-                list_good_cliques.append(c)
-                set_all_cliques = set_all_cliques.union(c)
-                # j=0
-                # for n in c:
-                #     lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
-                #     j +=1                
-                # alldiff='['
-                # j=0
-                # for n in c:
-                #     alldiff +='colors['+str(n)+']'
-                #     if j < len(c)-1:
-                #         alldiff +=','
-                #     j +=1
-                # alldiff +=']'
-                # lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
+    # sort the cliques by descending number of items.
+    sorted_cliques = []
+    for i in cliques:
+        if len(i) >= 3:
+            sorted_cliques.append((i,len(i)))
+    sorted_cliques.sort(key=lambda a: a[1],reverse=True)
+    # remove the tuple to become a list of sets representing the cliques
+    sorted_cliques = [a[0] for a in sorted_cliques]
+    print ('max clique:', len(max_clique), max_clique)
+    print ('n cliques:', len(sorted_cliques))
+    # for i in sorted_cliques:
+    #     print (i)
 
-    print ('\n\\n\n GOOD CLIQUES:', len(list_good_cliques))
-    print ('set_all_cliques:', len(set_all_cliques))
-    print (set_all_cliques)
-    # transfor the set into list
-    set_all_cliques = list(set_all_cliques)
-    cliques_dict = dict()
-    for i in range(len(set_all_cliques)):
-        cliques_dict[set_all_cliques[i]] = 0
-    for i in range(len(set_all_cliques)-1):
-        for j in range(i+1, len(set_all_cliques)):
-            if G.has_edge(set_all_cliques[i],set_all_cliques[j]):
-                cliques_dict[set_all_cliques[i]] += 1
-                cliques_dict[set_all_cliques[j]] += 1
-    
-    print ('DICTIONARY:')
-    for key in cliques_dict:
-        print (key, cliques_dict[key])
-
-    for i in list_good_cliques:
-        print (i)
 
     # check if the cliques are adjacents
     # check if any node of clique1 is connected to any node of clique2
     no_adj_clique = []
-    for c1 in range(len(list_good_cliques)-1):
-        for c2 in range(c1+1,len(list_good_cliques)):
+    for c1 in range(len(sorted_cliques)-1):
+        for c2 in range(c1+1,len(sorted_cliques)):
             adj = False
-            for c1i in list_good_cliques[c1]:
-                for c2i in list_good_cliques[c2]:
+            for c1i in sorted_cliques[c1]:
+                for c2i in sorted_cliques[c2]:
                     if G.has_edge(c1i,c2i):
                         adj = True
                         break
@@ -332,13 +289,91 @@ def gen_cliques(G):
                     break
             if not adj:
                 print ("not adjacents:")
-                print (list_good_cliques[c1])
-                print (list_good_cliques[c2])
-                no_adj_clique.append((list_good_cliques[c1],list_good_cliques[c2]))
+                print (sorted_cliques[c1])
+                print (sorted_cliques[c2])
+                no_adj_clique.append((sorted_cliques[c1],sorted_cliques[c2]))
 
     print ("NOT ADJCENT CLIQUES:", len(no_adj_clique))
     for i in no_adj_clique:
         print (i[0], i[1])
+
+
+    # # for all the rest of the cliques, assign alldifferent
+    # list_good_cliques = []
+    # list_good_cliques.append(max_clique)
+    # set_all_cliques = set()
+    # for c in cliques:
+    #     #print (c)
+    #     c = set(c)
+    #     # skip the smaller cliques to avoid too many constraints
+    #     good_clique_sizes = range(len(max_clique)-3,len(max_clique)+1)
+    #     if len(c) in good_clique_sizes:
+    #         z = {}
+    #         for g in list_good_cliques:
+    #             z = g.intersection(c)
+    #             if len(z) != 0:
+    #                 break
+    #         if len(z) == 0:
+    #             print ('good clique:', c)
+    #             list_good_cliques.append(c)
+    #             set_all_cliques = set_all_cliques.union(c)
+    #             # j=0
+    #             # for n in c:
+    #             #     lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
+    #             #     j +=1                
+    #             # alldiff='['
+    #             # j=0
+    #             # for n in c:
+    #             #     alldiff +='colors['+str(n)+']'
+    #             #     if j < len(c)-1:
+    #             #         alldiff +=','
+    #             #     j +=1
+    #             # alldiff +=']'
+    #             # lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
+
+    # print ('\n\\n\n GOOD CLIQUES:', len(list_good_cliques))
+    # print ('set_all_cliques:', len(set_all_cliques))
+    # print (set_all_cliques)
+    # # transfor the set into list
+    # set_all_cliques = list(set_all_cliques)
+    # cliques_dict = dict()
+    # for i in range(len(set_all_cliques)):
+    #     cliques_dict[set_all_cliques[i]] = 0
+    # for i in range(len(set_all_cliques)-1):
+    #     for j in range(i+1, len(set_all_cliques)):
+    #         if G.has_edge(set_all_cliques[i],set_all_cliques[j]):
+    #             cliques_dict[set_all_cliques[i]] += 1
+    #             cliques_dict[set_all_cliques[j]] += 1
+    
+    # print ('DICTIONARY:')
+    # for key in cliques_dict:
+    #     print (key, cliques_dict[key])
+
+    # for i in list_good_cliques:
+    #     print (i)
+
+    # # check if the cliques are adjacents
+    # # check if any node of clique1 is connected to any node of clique2
+    # no_adj_clique = []
+    # for c1 in range(len(list_good_cliques)-1):
+    #     for c2 in range(c1+1,len(list_good_cliques)):
+    #         adj = False
+    #         for c1i in list_good_cliques[c1]:
+    #             for c2i in list_good_cliques[c2]:
+    #                 if G.has_edge(c1i,c2i):
+    #                     adj = True
+    #                     break
+    #             if adj:
+    #                 break
+    #         if not adj:
+    #             print ("not adjacents:")
+    #             print (list_good_cliques[c1])
+    #             print (list_good_cliques[c2])
+    #             no_adj_clique.append((list_good_cliques[c1],list_good_cliques[c2]))
+
+    # print ("NOT ADJCENT CLIQUES:", len(no_adj_clique))
+    # for i in no_adj_clique:
+    #     print (i[0], i[1])
 
 
     # create the minizinc model with the alldifferent constraints
