@@ -99,7 +99,7 @@ from nxviz.plots import MatrixPlot
 # https://www.geeksforgeeks.org/exploring-correlation-in-python/
 # https://py3plex.readthedocs.io/en/latest/supra.html
 
-DEBUG = True
+DEBUG = False
 
 def solve_it(input_data):
     # parse the input
@@ -117,33 +117,28 @@ def solve_it(input_data):
     # generate NetworkX graph
     G = nxGraph(edges)
 
-    # set variables for process communication with minizinc
-    process = None
-    stdout = None
-    stderr = None
-
     # find the max_clique as a lower bound. at least this number of colors are required
-    max_clique = gen_cliques(G)
-    #max_clique = gen_cliques2(G)
-    #max_clique = gen_cliques3(G)
-    if DEBUG:
-        print ('max_clique:', max_clique)
+    lb = lower_bound(G)
         
-    # According to the book: "A Guide to Graph Colouring: Algorithms and Applications", 
-    #  Section '2.2.2 Upper bounds',  the max degree can be used as an upper bound
-    degrees = [0]*node_count
-    for node in range(node_count):
-        degrees.append(G.degree(node)+1)
-    #remove the zeros from the list
-    while 0 in degrees: degrees.remove(0)
-    max_degree = max(degrees)
+    # run the upper bound
+    ub = upper_bound(G)
+    real_ub = ub
     if DEBUG:
-        print ('max_degree:', max_degree, degrees)
-    lb = max_clique
+        print ('lb:', lb)
+        print ('ub:', ub)
+
+    # generate the minizinc model with custom contraints
+    gen_model(G)
+    #gen_model2(G)
+    #gen_model3(G)
+
     ub = lb
     timeout = 30
     # the states are 'timeout', 'nsat', 'sat'
     minizinc_state = None
+    # set variables for process communication with minizinc
+    stdout = None
+    stderr = None
     while True:
         if DEBUG:
             print ("running with lb:", lb, "and ub:", ub)
@@ -189,7 +184,7 @@ def solve_it(input_data):
             print ("Unknown error occured")
             break
         elif minizinc_state == 'nsat':
-            if lb < max_degree:
+            if lb < real_ub:
                 lb +=1
                 ub +=1
             else:
@@ -229,7 +224,37 @@ def nxGraph(edges):
     return G
 
 ###################################################################################
-def gen_cliques(G):
+def lower_bound(G):
+    return len(clique.max_clique(G))
+
+###################################################################################
+def upper_bound(G):
+    # run heuristics as a upper bound
+    strategies = ['largest_first', 'random_sequential', 'smallest_last', 'independent_set',
+        'connected_sequential_bfs', 'connected_sequential_dfs', 'saturation_largest_first']
+    # set of colors found by each execution
+    colors = []
+
+    for s in strategies:
+        # reapet each strategy 3 times
+        for i in range(3):
+            d = nx.coloring.greedy_color(G,s)
+            MaxKey = max(d, key=d.get)
+            colors.append(d[MaxKey]+1)
+
+    # According to the book: "A Guide to Graph Colouring: Algorithms and Applications", 
+    #  Section '2.2.2 Upper bounds',  the max degree can be used as an upper bound
+    # In addition, heuristics are run to try to get a better upper bound
+    degrees = [0]*G.number_of_nodes()
+    for node in range(len(degrees)):
+        degrees.append(G.degree(node)+1)
+    colors.append(max(degrees))
+
+    return min(colors)
+
+
+###################################################################################
+def gen_model(G):
 
     # reading the minizinc template to insert the clique constraints
     mzn_tpl_file = open('graphColoring-template.mzn', 'r')
@@ -244,8 +269,27 @@ def gen_cliques(G):
         # not recommended for graphs with more than 500 nodes
         max_clique = clique.max_clique(G)
         cliques = list(nx.algorithms.clique.find_cliques(G))
-    print (type(cliques[0]))
+    #print (type(cliques[0]))
 
+    # sort the cliques by descending number of items.
+    sorted_cliques = []
+    for i in cliques:
+        if len(i) >= 3:
+            sorted_cliques.append((i,len(i)))
+    sorted_cliques.sort(key=lambda a: a[1],reverse=True)
+    # sometimes, the clique.max_clique does not deliver the actual max
+    if len(sorted_cliques) > 0:
+        if sorted_cliques[0][1] > len(max_clique):
+            max_clique = sorted_cliques[0][0]
+    # remove the tuple to become a list of sets representing the cliques
+    sorted_cliques = [a[0] for a in sorted_cliques]
+    if DEBUG:
+        print ('max clique:', len(max_clique), max_clique)
+        print ('n cliques:', len(sorted_cliques))
+        for i in sorted_cliques:
+            print (i)
+
+    # find the place to insert the custom constraints
     i = 0
     line_pos = 0
     for l in lines:
@@ -257,22 +301,46 @@ def gen_cliques(G):
 
     # assign the colors to the max_clique
     j=0
+    color_codes = {}
     for n in max_clique:
         lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
+        color_codes[n] = j+1
         j +=1
 
-    # sort the cliques by descending number of items.
-    sorted_cliques = []
-    for i in cliques:
-        if len(i) >= 3:
-            sorted_cliques.append((i,len(i)))
-    sorted_cliques.sort(key=lambda a: a[1],reverse=True)
-    # remove the tuple to become a list of sets representing the cliques
-    sorted_cliques = [a[0] for a in sorted_cliques]
-    print ('max clique:', len(max_clique), max_clique)
-    print ('n cliques:', len(sorted_cliques))
-    # for i in sorted_cliques:
-    #     print (i)
+    if DEBUG:
+        print ('COLOR CODES:')
+        for key in color_codes:
+            print (key, color_codes[key])
+
+    # sort the nodes in ascending order of degree
+    degree_list = []
+    for n in G.nodes():
+        degree_list.append((n,len(G.adj[n])))
+    degree_list.sort(key=lambda a: a[1])
+
+    #for i in degree_list:
+    #    print (i)
+
+    # A vertex u is dominated by a vertex v, v =
+    # u, if the neighborhood of u is a subset of the
+    # neighborhood of v. In this case, the vertex u can be deleted from G, the remaining graph
+    # can be colored, and at the end, u can get the same color as v.
+    
+    # this idea comes form the paper "New Integer Linear Programming Models for the Vertex Coloring Problem"
+    # unfortunatly, coursera's dataset do not have this situation, so it's useless
+    #print ('NODE DOMINANCE')
+    for n in degree_list:
+        if n[1] < len(max_clique):
+            neighbors = set(G.adj[n[0]])
+            inter = neighbors.intersection(max_clique)
+            diff = list(neighbors.difference(inter))
+            # the node n is dominated by max_clique
+            if len(diff) == 0:
+                diff = list(max_clique.difference(neighbors))
+                lines.insert(line_pos,'constraint colors[%d] == %d;' % (n, color_codes[diff[0]]))
+        else:
+            break
+
 
 
     # # check if there is only one difference among the cliques to increase the # of defined nodes
@@ -413,10 +481,8 @@ def gen_cliques(G):
     mzn_tpl_file.close()
 
 
-    return len(max_clique)
-
 ###################################################################################
-def gen_cliques2(G):
+def gen_model2(G):
 
     # reading the minizinc template to insert the clique constraints
     mzn_tpl_file = open('graphColoring-template.mzn', 'r')
@@ -436,10 +502,8 @@ def gen_cliques2(G):
         mzn_tpl_file.write("%s\n" % item)
     mzn_tpl_file.close()
 
-    return len(max_clique)
-
 ###################################################################################
-def gen_cliques3(G):
+def gen_model3(G):
 
     # reading the minizinc template to insert the clique constraints
     mzn_tpl_file = open('graphColoring-template.mzn', 'r')
@@ -485,8 +549,6 @@ def gen_cliques3(G):
         mzn_tpl_file.write("%s\n" % item)
     mzn_tpl_file.close()
 
-
-    return len(max_clique)
 
 ###################################################################################
 def graph_dot(G, colors, solution, filename='graph'):
@@ -720,8 +782,8 @@ if __name__ == '__main__':
         input_data_file = open(file_location, 'r')
         input_data = ''.join(input_data_file.readlines())
         input_data_file.close()
-        #if DEBUG:
-        #    seriate(file_location)
+        # if DEBUG:
+        #     seriate(file_location)
         print ('Solving:', file_location)
         print (solve_it(input_data))
     else:
