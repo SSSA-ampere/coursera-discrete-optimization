@@ -99,7 +99,7 @@ from nxviz.plots import MatrixPlot
 # https://www.geeksforgeeks.org/exploring-correlation-in-python/
 # https://py3plex.readthedocs.io/en/latest/supra.html
 
-DEBUG = False
+DEBUG = True
 
 def solve_it(input_data):
     # parse the input
@@ -115,24 +115,33 @@ def solve_it(input_data):
         edges.append((int(parts[0]), int(parts[1])))
 
     # generate NetworkX graph
-    G = nxGraph(edges)
+    G = nx.Graph(edges)
+
+    # from: Classical Coloring of Graphs
+    # The core of graph G is the subgraph of G obtained by the
+    # iterated removal of all vertices of degree 1 from G 
+
+    # olhar: networkx.maximal_independent_set()
+
+    #  value x of the maximal clique can
+    # be used to reduce the graph size by removing every
+    # vertex that has a degree smaller than x − 1.
 
     # find the max_clique as a lower bound. at least this number of colors are required
     lb = lower_bound(G)
         
     # run the upper bound
-    ub = upper_bound(G)
-    real_ub = ub
+    real_ub, ub = upper_bound(G)
     if DEBUG:
         print ('lb:', lb)
         print ('ub:', ub)
+        print ('max_degree:', real_ub)
 
     # generate the minizinc model with custom contraints
     gen_model(G)
     #gen_model2(G)
     #gen_model3(G)
 
-    ub = lb
     timeout = 30
     # the states are 'timeout', 'nsat', 'sat'
     minizinc_state = None
@@ -184,10 +193,9 @@ def solve_it(input_data):
             print ("Unknown error occured")
             break
         elif minizinc_state == 'nsat':
-            if lb < real_ub:
-                lb +=1
-                ub +=1
-            else:
+            lb = ub + 1
+            ub +=2
+            if lb > real_ub:
                 # abort because all reached the true upper bound. nothing else to search
                 print ("upper bound reached and no solution was found")
                 break
@@ -200,9 +208,10 @@ def solve_it(input_data):
         # extract the solution from standard-out
         colors, solution = extractSolution(stdout,node_count)
 
-        # if DEBUG:
-        #     # generate the colored graph
-        #     graph_dot(G, int(colors), solution)
+        if DEBUG:
+            if node_count <= 100:
+                # generate the colored graph
+                graph_dot(G, int(colors), solution)
 
         # prepare the solution in the specified output format
         output_data = str(colors) + ' ' + str(1) + '\n'
@@ -240,6 +249,9 @@ def upper_bound(G):
         for i in range(3):
             d = nx.coloring.greedy_color(G,s)
             MaxKey = max(d, key=d.get)
+            # if DEBUG:
+            #     print (d[MaxKey]+1)
+            #     print (d)
             colors.append(d[MaxKey]+1)
 
     # According to the book: "A Guide to Graph Colouring: Algorithms and Applications", 
@@ -248,9 +260,12 @@ def upper_bound(G):
     degrees = [0]*G.number_of_nodes()
     for node in range(len(degrees)):
         degrees.append(G.degree(node)+1)
-    colors.append(max(degrees))
+    max_degree = max(degrees)
 
-    return min(colors)
+    if DEBUG:
+        print (colors)
+
+    return max_degree, max(colors)
 
 
 ###################################################################################
@@ -286,8 +301,8 @@ def gen_model(G):
     if DEBUG:
         print ('max clique:', len(max_clique), max_clique)
         print ('n cliques:', len(sorted_cliques))
-        for i in sorted_cliques:
-            print (i)
+        # for i in sorted_cliques:
+        #     print (i)
 
     # find the place to insert the custom constraints
     i = 0
@@ -582,11 +597,22 @@ def graph_dot(G, colors, solution, filename='graph'):
     # transforms NetworkX into PyG AGraph
     A = nx.nx_agraph.to_agraph(G)
 
+    # the nodes in the max clique have a different shape
+    max_clique = clique.max_clique(G)
+
     for i in range(len(solution)):
         n=A.get_node(i)
         color_code = solution[i]-1
         n.attr['fillcolor'] = selected_colors[color_code]
         n.attr['style']='filled'
+        node_id = int(n.get_name())
+        if node_id in max_clique:
+            n.attr['shape']= 'doubleoctagon'
+            # add a fat line for the edges of the max clique
+            for c in max_clique:
+                if c != node_id:
+                    edge=A.get_edge(n.get_name(),str(c))
+                    edge.attr['penwidth'] = 4.0
 
     # create the legend
     legend_nodes = []

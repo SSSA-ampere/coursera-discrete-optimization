@@ -26,6 +26,20 @@ constraint forall(i in EDGES)(colors[edges1[i]] != colors[edges2[i]]);
 % count the different numbers in colors
 constraint nbColors = card({ colors[i] | i in NODES});
 
+% symmetry breaking constraint
+% the number of nodes with color i must be >= than the number of nodes with color i+1
+% from: A survey on vertex coloring problems. 2009
+constraint forall(i in 1..ubc-1) (
+    count([ colors[j] = i | j in NODES]) >= count([ colors[j] = i+1 | j in NODES])
+);
+
+% symmetry breaking constraint
+% color i+1 can be assigned to a vertex only if color i is assigned to some other vertex
+% from: A survey on vertex coloring problems. 2009
+constraint forall(i in 1..ubc-1)(
+    count([ colors[j] = i+1 | j in NODES]) > 0  ->  count([ colors[j] = i | j in NODES]) > 0
+);
+
 % list of clique alldifferent constraints for the cliques
 % PUT_CLIQUES_HERE
 
