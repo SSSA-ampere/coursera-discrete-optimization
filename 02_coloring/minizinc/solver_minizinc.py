@@ -90,6 +90,7 @@ import matplotlib.pyplot as plt
 import statistics 
 import math
 import random
+from networkx.classes.function import neighbors
 #import time
 from nxviz.plots import MatrixPlot
 
@@ -115,7 +116,7 @@ def solve_it(input_data):
         edges.append((int(parts[0]), int(parts[1])))
 
     # generate NetworkX graph
-    G = nx.Graph(edges)
+    original_num_nodes, G = nxGraph(edges)
 
     # from: Classical Coloring of Graphs
     # The core of graph G is the subgraph of G obtained by the
@@ -230,7 +231,27 @@ def nxGraph(edges):
     for e in edges:
         G.add_edge(e[0], e[1])
     
-    return G
+    # The core of graph G is the subgraph of G obtained by the
+    #   iterated removal of all vertices of degree 1 from G 
+    # from: Classical Coloring of Graphs
+    # Remove all nodes with degree 1
+    original_num_nodes = G.number_of_nodes()
+    if DEBUG:
+        print ('%d nodes and %d edges before prunning nodes with degree 1' % (G.number_of_nodes(), G.number_of_edges()))
+    # althouth it makes sense to prune these nodes for ordinary graphs.
+    # it complicates the end of the algorithm and it does not provide improvements for the 
+    # most complex coursera dataset, which has high degree
+    #G = nx.k_core(G,k=2)
+    if DEBUG:
+        print ('%d nodes and %d edges after prunning' % (G.number_of_nodes(), G.number_of_edges()))
+
+    # The number g(G) = 2m/(n(n − 1)) is known as the density of graph G.    
+    m = G.number_of_nodes()
+    n = G.number_of_edges()
+    if DEBUG:
+        print ('Graph density:', 2*m/(n*(n - 1)))
+
+    return original_num_nodes, G
 
 ###################################################################################
 def lower_bound(G):
@@ -615,18 +636,24 @@ def graph_dot(G, colors, solution, filename='graph'):
                     edge.attr['penwidth'] = 4.0
 
     # create the legend
-    legend_nodes = []
-    for i in range(len(selected_colors)):
-        node_name = 'c'+str(i)
-        A.add_node(node_name)
-        n=A.get_node(node_name)
-        n.attr['fillcolor'] = selected_colors[i]
-        legend_nodes.append(node_name)
-        n.attr['style']='filled'
-    A.add_subgraph(name='cluster1', nbunch= legend_nodes, label='legend', color = 'black', rank='same')
+    # legend_nodes = []
+    # for i in range(len(selected_colors)):
+    #     node_name = 'c'+str(i)
+    #     A.add_node(node_name)
+    #     n=A.get_node(node_name)
+    #     n.attr['fillcolor'] = selected_colors[i]
+    #     legend_nodes.append(node_name)
+    #     n.attr['style']='filled'
+    # A.add_subgraph(name='cluster1', nbunch= legend_nodes, label='legend', color = 'black', rank='same')
 
+    # simpler legend
+    A.graph_attr['label'] = 'Number of colors %d' % (colors)
+    A.graph_attr['labelloc'] = 't'
+    A.graph_attr['labelfontsize'] = 1.4 * G.number_of_nodes() - 15
+    
     A.write(filename+".dot")
-    A.layout(prog='dot')
+    # change here the plot layout
+    A.layout(prog='circo')
     A.draw(filename+".png")
 
 
