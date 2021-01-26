@@ -118,6 +118,9 @@ def solve_it(input_data):
     # generate NetworkX graph
     original_num_nodes, G = nxGraph(edges)
 
+    # get the cliques used next
+    max_clique, cliques = get_cliques(G)
+
     # from: Classical Coloring of Graphs
     # The core of graph G is the subgraph of G obtained by the
     # iterated removal of all vertices of degree 1 from G 
@@ -128,8 +131,8 @@ def solve_it(input_data):
     # be used to reduce the graph size by removing every
     # vertex that has a degree smaller than x − 1.
 
-    # find the max_clique as a lower bound. at least this number of colors are required
-    lb = lower_bound(G)
+    # the max_clique is the lower bound. at least this number of colors are required
+    lb = len(max_clique)
         
     # run the upper bound
     real_ub, ub = upper_bound(G)
@@ -139,10 +142,11 @@ def solve_it(input_data):
         print ('max_degree:', real_ub)
 
     # generate the minizinc model with custom contraints
-    gen_model(G)
+    gen_model(G, max_clique, cliques)
     #gen_model2(G)
     #gen_model3(G)
 
+    ub = lb
     timeout = 30
     # the states are 'timeout', 'nsat', 'sat'
     minizinc_state = None
@@ -194,8 +198,8 @@ def solve_it(input_data):
             print ("Unknown error occured")
             break
         elif minizinc_state == 'nsat':
-            lb = ub + 1
-            ub +=2
+            lb += 1
+            ub += 1
             if lb > real_ub:
                 # abort because all reached the true upper bound. nothing else to search
                 print ("upper bound reached and no solution was found")
@@ -210,9 +214,11 @@ def solve_it(input_data):
         colors, solution = extractSolution(stdout,node_count)
 
         if DEBUG:
-            if node_count <= 100:
+            if G.number_of_edges() <= 300:
                 # generate the colored graph
                 graph_dot(G, int(colors), solution)
+            else:
+                print ("the graph is too big to plot")
 
         # prepare the solution in the specified output format
         output_data = str(colors) + ' ' + str(1) + '\n'
@@ -254,10 +260,6 @@ def nxGraph(edges):
     return original_num_nodes, G
 
 ###################################################################################
-def lower_bound(G):
-    return len(clique.max_clique(G))
-
-###################################################################################
 def upper_bound(G):
     # run heuristics as a upper bound
     strategies = ['largest_first', 'random_sequential', 'smallest_last', 'independent_set',
@@ -288,15 +290,8 @@ def upper_bound(G):
 
     return max_degree, max(colors)
 
-
 ###################################################################################
-def gen_model(G):
-
-    # reading the minizinc template to insert the clique constraints
-    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
-    mzn_data = ''.join(mzn_tpl_file.readlines())
-    mzn_tpl_file.close()
-    lines = mzn_data.split('\n')
+def get_cliques(G):
 
     # searching the cliques in G
     cliques = []
@@ -324,6 +319,17 @@ def gen_model(G):
         print ('n cliques:', len(sorted_cliques))
         # for i in sorted_cliques:
         #     print (i)
+
+    return max_clique, sorted_cliques
+
+###################################################################################
+def gen_model(G, max_clique, cliques):
+
+    # reading the minizinc template to insert the clique constraints
+    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
+    mzn_data = ''.join(mzn_tpl_file.readlines())
+    mzn_tpl_file.close()
+    lines = mzn_data.split('\n')
 
     # find the place to insert the custom constraints
     i = 0
@@ -587,7 +593,7 @@ def gen_model3(G):
 
 
 ###################################################################################
-def graph_dot(G, colors, solution, filename='graph'):
+def graph_dot(G, max_clique, colors, solution, filename='graph'):
     """ It generates graphviz graphs.
     """
 
@@ -619,8 +625,6 @@ def graph_dot(G, colors, solution, filename='graph'):
     A = nx.nx_agraph.to_agraph(G)
 
     # the nodes in the max clique have a different shape
-    max_clique = clique.max_clique(G)
-
     for i in range(len(solution)):
         n=A.get_node(i)
         color_code = solution[i]-1
