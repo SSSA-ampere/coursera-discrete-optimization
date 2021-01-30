@@ -135,10 +135,10 @@ def solve_it(input_data):
     # print error messages if there are any 
     #print (stderr)
     # extract the solution from standard-out
-    solution = extractSolution(stdout,set_count)
+    obj, solution = extractSolution(stdout,set_count)
 
     # calculate the cost of the solution
-    obj = sum([s.cost*solution[s.index] for s in sets])
+    #obj = sum([s.cost*solution[s.index] for s in sets])
 
     # prepare the solution in the specified output format
     output_data = str(obj) + ' ' + str(1) + '\n'
@@ -190,9 +190,12 @@ def generateMinizincDataFile(item_count, set_count, sets, max_cost, max_cover_le
 def extractSolution(stdout,set_count):
     solution = [0]*set_count
     
+    
     stdout = str(stdout, 'utf-8')
-    lines = stdout.split('\n') 
-    line = lines[0]  
+    #print (stdout)
+    lines = stdout.split('\n')
+    cost = int(lines[0])
+    line = lines[1]  
     line = line[1:-1]
     words = line.split(', ')
     if len(words) != set_count:
@@ -201,7 +204,7 @@ def extractSolution(stdout,set_count):
         for i in range(0,len(words)):
             solution[i] = int(words[i])
 
-    return solution
+    return cost, solution
 
 # ##################################################################################        
 import sys
