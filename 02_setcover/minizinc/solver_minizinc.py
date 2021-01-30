@@ -98,13 +98,21 @@ def solve_it(input_data):
     set_count = int(parts[1])
     
     sets = []
+    max_cost = 0
+    max_cover_lenght = 0
     for i in range(1, set_count+1):
         parts = lines[i].split()
-        sets.append(Set(i-1, float(parts[0]), map(int, parts[1:])))
+        cover = list(map(int, parts[1:]))
+        cost = int(parts[0])
+        if len(cover) > max_cover_lenght:
+            max_cover_lenght = len(cover)
+        if cost > max_cost:
+            max_cost = cost
+        sets.append(Set(i-1, float(cost), cover))
 
     # generate MiniZinc data file
     data_file = "data.dzn"
-    generateMinizincDataFile(item_count, set_count, sets, data_file)
+    generateMinizincDataFile(item_count, set_count, sets, max_cost, max_cover_lenght , data_file)
 
     # specify here how many solutions the solver should maximally search for ('0' means all)
     nb_solutions = 10
@@ -125,7 +133,7 @@ def solve_it(input_data):
     (stdout, stderr) = process.communicate()
 
     # print error messages if there are any 
-    print (stderr)
+    #print (stderr)
     # extract the solution from standard-out
     solution = extractSolution(stdout,set_count)
 
@@ -140,12 +148,15 @@ def solve_it(input_data):
 
 
 # ##################################################################################
-def generateMinizincDataFile(item_count, set_count, sets, data_file):
+def generateMinizincDataFile(item_count, set_count, sets, max_cost, max_cover_lenght, data_file):
     tmpFile = open(data_file, 'w')
     
     out = "% automatically generated Minizinc data file\n"
     out += "nbItems = " + str(item_count)+ ";\n"
     out += "nbSets = " + str(set_count)+ ";\n"
+    out += "max_set = " + str(max_cover_lenght)+ ";\n"
+    out += "max_weight = " + str(max_cost)+ ";\n"
+
     out += "weights = [ " 
     cnt = 0
     for s in sets: 
@@ -177,13 +188,13 @@ def generateMinizincDataFile(item_count, set_count, sets, data_file):
     tmpFile.close()
 # ##################################################################################
 def extractSolution(stdout,set_count):
-    solution = []
-    for i in range(0, set_count):
-        solution.append(0)
+    solution = [0]*set_count
     
-    lines = stdout.split('\n')   
-    line = lines[0]
-    words = line.split()
+    stdout = str(stdout, 'utf-8')
+    lines = stdout.split('\n') 
+    line = lines[0]  
+    line = line[1:-1]
+    words = line.split(', ')
     if len(words) != set_count:
         print ("Error in number of solutions")
     else:
