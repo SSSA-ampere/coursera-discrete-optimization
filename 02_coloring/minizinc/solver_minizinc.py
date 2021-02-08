@@ -171,7 +171,7 @@ def solve_it(input_data):
     for n in max_clique:
         new_model_lines.append('constraint colors[%d] = %d;' % (n,j+1))
         j +=1    
-    gen_model(G, new_model_lines)
+    gen_model(G, new_model_lines,'graphColoring-template.mzn', 'graphColoring.mzn')
     #gen_model2(G)
     #gen_model3(G)
 
@@ -319,41 +319,52 @@ def upper_bound(G):
 
     # check the heuristics solutions to see if they are indeed valid ones. minizinc will be used to check the solution.
     # sort the solutions by the descending order of number of colors
-    # heuristic_solutions.sort(key=lambda item: item[max(item, key=item.get)], reverse=True)
-    # print ('\n\n\nheuristic solutions:\n\n\n')
-    # lines = []
-    # skip_solutions_of_colors = 99999
-    # for c in heuristic_solutions:
-    #     num_colors = c[max(c, key=c.get)]+1
-    #     #print (c[max(c, key=c.get)]+1,'---', c)
-    #     if num_colors >= skip_solutions_of_colors:
-    #         continue
+    heuristic_solutions.sort(key=lambda item: item[max(item, key=item.get)], reverse=True)
+    if DEBUG:
+        print ('\n\n\nheuristic solutions:\n\n\n')
+    skip_solutions_of_colors = 99999
+    best_heuristic_solution = 99999
+    for c in heuristic_solutions:
+        num_colors = c[max(c, key=c.get)]+1
+        # sort the solution by the color number
+        sorted_tuples = sorted(c.items(), key=lambda item: item[1])
+        sorted_dict = {k: v for k, v in sorted_tuples}        
+        #print (c[max(c, key=c.get)]+1,'---', c)
+        if num_colors >= skip_solutions_of_colors:
+            continue
 
-    #     # build the constraint text
-    #     for k,v in c.items():
-    #         lines.append('constraint colors[%d] = %d;' % (k,v))
-    #     # insert these new lines into the minizinc model template
-    #     gen_model(G, lines)
-    #     # run minizinc to test the solution
-    #     minizinc_proc = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
-    #             stdout=PIPE, stderr=PIPE)
-    #     (stdout, stderr) = minizinc_proc.communicate()
+        # build the constraint text
+        lines = []
+        for k,v in sorted_dict.items():
+            lines.append('constraint colors[%d] = %d;' % (k,v+1))
+        lines.append('% number of colors:' + str(num_colors))
+        # insert these new lines into the minizinc model template
+        gen_model(G, lines, 'satisfy-template.mzn', 'check_heur.mzn')
+        # run minizinc to test the solution
+        minizinc_proc = Popen(['minizinc', '-m', 'check_heur.mzn', '-d', 'data.dzn'],
+                stdout=PIPE, stderr=PIPE)
+        (stdout, stderr) = minizinc_proc.communicate()
 
-    #     # If minizinc tells that the heuristic solution is unfeasible, then go to the next one
-    #     # since it's no use to test other solution with the same number of colors.
-    #     # Else, if the solution is feasible, jump to another solution with fewer colors. 
-    #     # Stop when all solutions were tested and we got at least on feasible solution, hopefully 
-    #     # with the minimal number of colors to give a tigher bound.
+        # If minizinc tells that the heuristic solution is unfeasible, then go to the next one
+        # since it's no use to test other solution with the same number of colors.
+        # Else, if the solution is feasible, jump to another solution with fewer colors. 
+        # Stop when all solutions were tested and we got at least on feasible solution, hopefully 
+        # with the minimal number of colors to give a tigher bound.
 
-    #     # check if it ended because it found a solution or if it's not satisfiable
-    #     stdout = str(stdout, 'utf-8')
-    #     stdout = stdout.split('\n')
-    #     if 'UNSATISFIABLE' in stdout[0]:
-    #         # try the next one
-    #         pass
-    #     else:
-    #         # try the next one with fewer colors
-    #         skip_solutions_of_colors = num_colors
+        # check if it ended because it found a solution or if it's not satisfiable
+        stdout = str(stdout, 'utf-8')
+        stdout = stdout.split('\n')
+        if 'UNSATISFIABLE' in stdout[0]:
+            # try the next one
+            if DEBUG:
+                print ('bad heuristic solution of size', num_colors, c)
+            pass
+        else:
+            # try the next one with fewer colors
+            if DEBUG:
+                print ('good heuristic solution of size', num_colors, c)
+            skip_solutions_of_colors = num_colors
+            best_heuristic_solution = num_colors
         
 
     # According to the book: "A Guide to Graph Colouring: Algorithms and Applications", 
@@ -381,7 +392,7 @@ def upper_bound(G):
         #print (res_list)
 
 
-    return max_degree, max(colors)
+    return max_degree, best_heuristic_solution
 
 ###################################################################################
 def check_clique(G, clique):
@@ -403,10 +414,7 @@ def get_cliques(G):
     max_clique = clique.max_clique(G)
     if not check_clique(G,max_clique):
         # crappy heuristics returned a false clique. ignore it
-        print ('\n\nCRAAAAPY CLIQUE:\n\n', len(max_clique), '---', max_clique)
         max_clique = []
-    else:
-        print ('good clique')
     # not recommended for graphs with more than 250 nodes. it has a huge memory use !
     if G.number_of_nodes() < 250:
         cliques = list(nx.algorithms.clique.find_cliques(G))
@@ -426,8 +434,6 @@ def get_cliques(G):
             # if this clique is good, then use it as max_clique, else, accept the next good clique as max_clique
             if check_clique(G,max_clique):
                 break
-            else:
-                print ('\n\nCRAAAAPY CLIQUE2:\n\n', len(max_clique), '---', max_clique)
     # remove the tuple to become a list of sets representing the cliques
     sorted_cliques = [a[0] for a in sorted_cliques]
     if DEBUG:
@@ -439,10 +445,10 @@ def get_cliques(G):
     return max_clique, sorted_cliques
 
 ###################################################################################
-def gen_model(G, new_model_lines):
+def gen_model(G, new_model_lines, templace_filename, model_filename):
 
     # reading the minizinc template to insert the clique constraints
-    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
+    mzn_tpl_file = open(templace_filename, 'r')
     mzn_data = ''.join(mzn_tpl_file.readlines())
     mzn_tpl_file.close()
     lines = mzn_data.split('\n')
@@ -624,7 +630,7 @@ def gen_model(G, new_model_lines):
 
 
     # create the minizinc model with the alldifferent constraints
-    mzn_tpl_file = open('graphColoring.mzn', 'w')
+    mzn_tpl_file = open(model_filename, 'w')
     for item in lines:
         mzn_tpl_file.write("%s\n" % item)
     mzn_tpl_file.close()
