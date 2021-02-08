@@ -1,6 +1,16 @@
 
 # Constraint Programming 
 
+# Graph Coloring Problems
+
+Coloring Problem 1: ./data/gc_50_3,   colors: 6  ,time: 2.2s,grade: 10; w max clique. 8 wo max clique
+Coloring Problem 2: ./data/gc_70_7,   colors: 23 ,time: 4s  ,grade: 3 ; w or wo max clique.
+Coloring Problem 3: ./data/gc_100_5,  colors: 20 ,time: 6s  ,grade:   ; w max clique. 22 wo max clique
+Coloring Problem 4: ./data/gc_250_9,  colors:    ,time: --  ,grade:   ;
+Coloring Problem 5: ./data/gc_500_1,  colors: 16 ,time: 45s ,grade:   ; no max clique. 17 with max clique
+Coloring Problem 6: ./data/gc_1000_5, colors: 128,time: to  ,grade:   ;
+
+to: timeout; --: could not run
 
 ## References
 

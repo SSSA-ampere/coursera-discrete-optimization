@@ -114,6 +114,7 @@ import networkx as nx
 from networkx.algorithms.approximation import clique
 import matplotlib.pyplot as plt 
 import random
+import statistics
 #import time
 from nxviz.plots import MatrixPlot
 
@@ -123,7 +124,11 @@ from nxviz.plots import MatrixPlot
 # https://www.geeksforgeeks.org/exploring-correlation-in-python/
 # https://py3plex.readthedocs.io/en/latest/supra.html
 
-DEBUG = False
+# TODO olhar https://stackoverflow.com/questions/62502906/how-to-improve-the-performance-of-my-graph-coloring-model-in-minizinc
+# https://ozgurakgun.github.io/ModRef2017/files/ModRef2017_SolutionCheckingWithMinizinc.pdf
+# https://stackoverflow.com/questions/45536579/optimization-of-minizinc-model
+
+DEBUG = True
 
 def solve_it(input_data):
     # parse the input
@@ -160,8 +165,13 @@ def solve_it(input_data):
         print ('ub:', ub)
         print ('max_degree:', real_ub)
 
-    # generate the minizinc model with custom contraints
-    gen_model(G, max_clique, cliques)
+    # generate the minizinc model with additional custom contraints
+    new_model_lines = []
+    j = 0
+    for n in max_clique:
+        new_model_lines.append('constraint colors[%d] = %d;' % (n,j+1))
+        j +=1    
+    gen_model(G, new_model_lines)
     #gen_model2(G)
     #gen_model3(G)
 
@@ -172,7 +182,7 @@ def solve_it(input_data):
     # these are the partial solutions
     colors = 0
     solution = []
-    timeout = 30
+    timeout = 60*5
 
     # the states are 'timeout', 'nsat', 'sat'
     minizinc_state = None
@@ -214,10 +224,12 @@ def solve_it(input_data):
 
         if minizinc_state == 'timeout':
             # the problem is too big for this timeout
-            print ("It wasnt possible to execute with the timeout,", timeout)
+            if DEBUG:
+                print ("It wasnt possible to execute with the timeout,", timeout)
             break
         elif minizinc_state == 'exception':
-            print ("Unknown error occured")
+            if DEBUG:
+                print ("Unknown error occured")
             break
         elif minizinc_state == 'nsat':
             # ok, now we reached the limit considering the current timeout
@@ -291,6 +303,7 @@ def upper_bound(G):
         'connected_sequential_bfs', 'connected_sequential_dfs', 'saturation_largest_first']
     # set of colors found by each execution
     colors = []
+    heuristic_solutions = []
 
     for s in strategies:
         # reapet each strategy 3 times
@@ -301,29 +314,101 @@ def upper_bound(G):
             #     print (d[MaxKey]+1)
             #     print (d)
             colors.append(d[MaxKey]+1)
+            #print (d)
+            heuristic_solutions.append(d)
+
+    # check the heuristics solutions to see if they are indeed valid ones. minizinc will be used to check the solution.
+    # sort the solutions by the descending order of number of colors
+    # heuristic_solutions.sort(key=lambda item: item[max(item, key=item.get)], reverse=True)
+    # print ('\n\n\nheuristic solutions:\n\n\n')
+    # lines = []
+    # skip_solutions_of_colors = 99999
+    # for c in heuristic_solutions:
+    #     num_colors = c[max(c, key=c.get)]+1
+    #     #print (c[max(c, key=c.get)]+1,'---', c)
+    #     if num_colors >= skip_solutions_of_colors:
+    #         continue
+
+    #     # build the constraint text
+    #     for k,v in c.items():
+    #         lines.append('constraint colors[%d] = %d;' % (k,v))
+    #     # insert these new lines into the minizinc model template
+    #     gen_model(G, lines)
+    #     # run minizinc to test the solution
+    #     minizinc_proc = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
+    #             stdout=PIPE, stderr=PIPE)
+    #     (stdout, stderr) = minizinc_proc.communicate()
+
+    #     # If minizinc tells that the heuristic solution is unfeasible, then go to the next one
+    #     # since it's no use to test other solution with the same number of colors.
+    #     # Else, if the solution is feasible, jump to another solution with fewer colors. 
+    #     # Stop when all solutions were tested and we got at least on feasible solution, hopefully 
+    #     # with the minimal number of colors to give a tigher bound.
+
+    #     # check if it ended because it found a solution or if it's not satisfiable
+    #     stdout = str(stdout, 'utf-8')
+    #     stdout = stdout.split('\n')
+    #     if 'UNSATISFIABLE' in stdout[0]:
+    #         # try the next one
+    #         pass
+    #     else:
+    #         # try the next one with fewer colors
+    #         skip_solutions_of_colors = num_colors
+        
 
     # According to the book: "A Guide to Graph Colouring: Algorithms and Applications", 
     #  Section '2.2.2 Upper bounds',  the max degree can be used as an upper bound
     # In addition, heuristics are run to try to get a better upper bound
-    degrees = [0]*G.number_of_nodes()
-    for node in range(len(degrees)):
+    degrees = []
+    if DEBUG:
+        print ('nodes with low degree:')
+    low_deg_cnt = 0
+    for node in range(G.number_of_nodes()):
+        if DEBUG:
+            if G.degree(node) <= 2:
+                print (node)
+                low_deg_cnt +=1
         degrees.append(G.degree(node)+1)
     max_degree = max(degrees)
+    min_degree = min(degrees)
+    avg_degree = statistics.mean(degrees)
+    med_degree = statistics.median(degrees)
 
     if DEBUG:
         print ('heur upper bound:', colors)
+        print ('stats (max, min, avg, med, low_deg_cnt):', max_degree, min_degree, avg_degree, med_degree, low_deg_cnt)
+        #res_list = [i for i, value in enumerate(degrees) if value == 0] 
+        #print (res_list)
+
 
     return max_degree, max(colors)
+
+###################################################################################
+def check_clique(G, clique):
+    clique_set = set(clique)
+    is_clique = True
+    for node in clique:
+        # remove the node form the clique
+        neighbors = clique_set - {node}
+        # if the set of adjacent nodes is a superset of neighbors, then it's ok, otherwise, is not a clique
+        if not (set(G.adj[node]) >= neighbors):
+            is_clique = False
+    return is_clique
 
 ###################################################################################
 def get_cliques(G):
 
     # searching the cliques in G
     cliques = []
-    max_clique = [1]
-    if G.number_of_nodes() <= 500:
-        # not recommended for graphs with more than 500 nodes
-        max_clique = clique.max_clique(G)
+    max_clique = clique.max_clique(G)
+    if not check_clique(G,max_clique):
+        # crappy heuristics returned a false clique. ignore it
+        print ('\n\nCRAAAAPY CLIQUE:\n\n', len(max_clique), '---', max_clique)
+        max_clique = []
+    else:
+        print ('good clique')
+    # not recommended for graphs with more than 250 nodes. it has a huge memory use !
+    if G.number_of_nodes() < 250:
         cliques = list(nx.algorithms.clique.find_cliques(G))
     #print (type(cliques[0]))
 
@@ -334,9 +419,15 @@ def get_cliques(G):
             sorted_cliques.append((i,len(i)))
     sorted_cliques.sort(key=lambda a: a[1],reverse=True)
     # sometimes, the clique.max_clique does not deliver the actual max
-    if len(sorted_cliques) > 0:
-        if sorted_cliques[0][1] > len(max_clique):
+    # get the next better and actual clique
+    for i in range(len(sorted_cliques)):
+        if sorted_cliques[i][1] > len(max_clique):
             max_clique = sorted_cliques[0][0]
+            # if this clique is good, then use it as max_clique, else, accept the next good clique as max_clique
+            if check_clique(G,max_clique):
+                break
+            else:
+                print ('\n\nCRAAAAPY CLIQUE2:\n\n', len(max_clique), '---', max_clique)
     # remove the tuple to become a list of sets representing the cliques
     sorted_cliques = [a[0] for a in sorted_cliques]
     if DEBUG:
@@ -348,7 +439,7 @@ def get_cliques(G):
     return max_clique, sorted_cliques
 
 ###################################################################################
-def gen_model(G, max_clique, cliques):
+def gen_model(G, new_model_lines):
 
     # reading the minizinc template to insert the clique constraints
     mzn_tpl_file = open('graphColoring-template.mzn', 'r')
@@ -366,18 +457,9 @@ def gen_model(G, max_clique, cliques):
             break
         i +=1
 
-    # assign the colors to the max_clique
-    j=0
-    color_codes = {}
-    for n in max_clique:
-        lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
-        color_codes[n] = j+1
-        j +=1
-
-    if DEBUG:
-        print ('COLOR CODES:')
-        for key in color_codes:
-            print (key, color_codes[key])
+    # insert the new lines to the model
+    for l in new_model_lines:
+        lines.insert(line_pos,l)
 
     # sort the nodes in ascending order of degree
     degree_list = []
@@ -396,17 +478,17 @@ def gen_model(G, max_clique, cliques):
     # this idea comes form the paper "New Integer Linear Programming Models for the Vertex Coloring Problem"
     # unfortunatly, coursera's dataset do not have this situation, so it's useless
     #print ('NODE DOMINANCE')
-    for n in degree_list:
-        if n[1] < len(max_clique):
-            neighbors = set(G.adj[n[0]])
-            inter = neighbors.intersection(max_clique)
-            diff = list(neighbors.difference(inter))
-            # the node n is dominated by max_clique
-            if len(diff) == 0:
-                diff = list(max_clique.difference(neighbors))
-                lines.insert(line_pos,'constraint colors[%d] == %d;' % (n, color_codes[diff[0]]))
-        else:
-            break
+    # for n in degree_list:
+    #     if n[1] < len(max_clique):
+    #         neighbors = set(G.adj[n[0]])
+    #         inter = neighbors.intersection(max_clique)
+    #         diff = list(neighbors.difference(inter))
+    #         # the node n is dominated by max_clique
+    #         if len(diff) == 0:
+    #             diff = list(max_clique.difference(neighbors))
+    #             lines.insert(line_pos,'constraint colors[%d] == %d;' % (n, color_codes[diff[0]]))
+    #     else:
+    #         break
 
 
 
