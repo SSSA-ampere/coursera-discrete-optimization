@@ -82,15 +82,38 @@
 # solver adapted to run minizinc
 # https://github.com/discreteoptimization/setcover/blob/master/minizinc_001/solver.py
 
+# Implemented simplifications
+# - lb: run several cliques and get the longest one
+# - ub: run several heuristics and get the one with the longest set of colors
+# - remove nodes with degree == 1
+# - set the colors of the maximal clique
+# - symmetry breaking constraints in the model template
+# - check for maximal independent set, nodes that only connect to the max clique 
+
+# TODO:
+# - other ways to reduce the problem size:
+#   See the book 'A Guide to Graph Colouring: Algorithms and Applications', 
+#   Sec. 3.3 Reducing Problem Size
+# - improve the lower bound:
+#   See the book 'A Guide to Graph Colouring: Algorithms and Applications', 
+#   2.2.1 Lower Bounds
+#   Let α(G) denote the independence number of a graph G, defined as the number of
+#   vertices contained in the largest independent set in G . I
+#   colors >= max(max clique size, ceil(n/max independent set size))
+# - try this implementation rather than the ones in NetworkX
+#   https://en.wikipedia.org/wiki/Independent_set_(graph_theory)#Maximum_independent_sets_and_maximum_cliques
+#   https://igraph.org/python/doc/igraph.GraphBase-class.html#independent_vertex_sets
+#   https://igraph.org/python/doc/igraph.GraphBase-class.html#maximal_cliques
+#   https://igraph.org/python/doc/igraph.GraphBase-class.html#largest_cliques
+#   https://doc.sagemath.org/html/en/reference/graphs/sage/graphs/graph_coloring.html
+#   https://doc.sagemath.org/html/en/reference/graphs/sage/graphs/cliquer.html
+
 import os, signal
-from subprocess import Popen, check_output, PIPE, TimeoutExpired
+from subprocess import Popen, PIPE, TimeoutExpired
 import networkx as nx
 from networkx.algorithms.approximation import clique
 import matplotlib.pyplot as plt 
-import statistics 
-import math
 import random
-from networkx.classes.function import neighbors
 #import time
 from nxviz.plots import MatrixPlot
 
@@ -100,7 +123,7 @@ from nxviz.plots import MatrixPlot
 # https://www.geeksforgeeks.org/exploring-correlation-in-python/
 # https://py3plex.readthedocs.io/en/latest/supra.html
 
-DEBUG = True
+DEBUG = False
 
 def solve_it(input_data):
     # parse the input
@@ -120,10 +143,6 @@ def solve_it(input_data):
 
     # get the cliques used next
     max_clique, cliques = get_cliques(G)
-
-    # from: Classical Coloring of Graphs
-    # The core of graph G is the subgraph of G obtained by the
-    # iterated removal of all vertices of degree 1 from G 
 
     # olhar: networkx.maximal_independent_set()
 
@@ -146,8 +165,15 @@ def solve_it(input_data):
     #gen_model2(G)
     #gen_model3(G)
 
-    ub = lb
+    #ub = lb
+    #lb = ub
+    # it will reducing the upper bound until it cannot find a solution in time
+    best_ub = 100000
+    # these are the partial solutions
+    colors = 0
+    solution = []
     timeout = 30
+
     # the states are 'timeout', 'nsat', 'sat'
     minizinc_state = None
     # set variables for process communication with minizinc
@@ -158,7 +184,7 @@ def solve_it(input_data):
             print ("running with lb:", lb, "and ub:", ub)
         # generate MiniZinc data file
         data_file = "data.dzn"
-        generateMinizincDataFile(node_count, edge_count, lb, ub, edges, data_file)
+        generateMinizincDataFile(node_count, edge_count, ub, ub, edges, data_file)
 
         # solve with Minizinc's MIP solver (CBC of COIN-OR)
         minizinc_proc = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
@@ -166,62 +192,61 @@ def solve_it(input_data):
         try:
             (stdout, stderr) = minizinc_proc.communicate(timeout=timeout)
         except TimeoutExpired as exc:
-            os.killpg(os.getpgid(minizinc_proc.pid), signal.SIGTERM) 
             minizinc_proc.kill()
-            #time.sleep(1)
             minizinc_state = 'timeout'
         # any other exception
         except Exception as e:
             minizinc_proc.kill()
-            #time.sleep(1)
             minizinc_state = 'exception'
         else:
-            aborted = False
-            # solution found, can abort the while loop
+            # solution found
             if DEBUG:
                 print ("solution found")
                 print (stdout)
                 print (stderr)
             satisfied = str(stdout, 'utf-8')
             lines = satisfied.split('\n')
-            # continue the search if it is not satisfied with these bounds
+            # check if it ended because it found a solution or if it's not satisfiable
             if 'UNSATISFIABLE' in lines[0]:
                 minizinc_state = 'nsat'
             else:
                 minizinc_state = 'sat'
 
         if minizinc_state == 'timeout':
-            # the problem is too big for this time out
+            # the problem is too big for this timeout
             print ("It wasnt possible to execute with the timeout,", timeout)
             break
         elif minizinc_state == 'exception':
             print ("Unknown error occured")
             break
         elif minizinc_state == 'nsat':
-            lb += 1
-            ub += 1
-            if lb > real_ub:
-                # abort because all reached the true upper bound. nothing else to search
-                print ("upper bound reached and no solution was found")
-                break
+            # ok, now we reached the limit considering the current timeout
+            break
         else:
             # solution found !
-            break
+            if best_ub > ub:
+                best_ub = ub
+                colors, solution = extractSolution(stdout,node_count)
+                #best_solution = (colors, solution)
+                # let's repeat with a tigher upper bound and see if it's still satisfiable within the timeout
+                ub -= 1
 
     output_data = None
-    if minizinc_state == 'sat':
-        # extract the solution from standard-out
-        colors, solution = extractSolution(stdout,node_count)
-
+    # if the last execution was unsatiafiable but a solution was found in the previous iterations, then an optimal solution was found
+    if len(solution) > 0 and minizinc_state=='nsat':
+        optimal=1
+    else:
+        optimal=0
+    if len(solution) > 0:
         if DEBUG:
             if G.number_of_edges() <= 300:
                 # generate the colored graph
-                graph_dot(G, int(colors), solution)
+                graph_dot(G, max_clique, int(colors), solution)
             else:
                 print ("the graph is too big to plot")
 
         # prepare the solution in the specified output format
-        output_data = str(colors) + ' ' + str(1) + '\n'
+        output_data = str(colors) + ' ' + str(optimal) + '\n'
         output_data += ' '.join(map(str, solution))
     else:
         print ("Aborted!")
@@ -286,7 +311,7 @@ def upper_bound(G):
     max_degree = max(degrees)
 
     if DEBUG:
-        print (colors)
+        print ('heur upper bound:', colors)
 
     return max_degree, max(colors)
 
