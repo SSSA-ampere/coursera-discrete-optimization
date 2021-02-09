@@ -143,6 +143,9 @@ def solve_it(input_data):
         parts = lines[i].split()
         edges.append((int(parts[0]), int(parts[1])))
 
+    # generate the preliminary data file to check the heuristics
+    generateMinizincDataFile(node_count, edge_count, 1000, 1000, edges, 'data.dzn')
+
     # generate NetworkX graph
     original_num_nodes, G = nxGraph(edges)
 
@@ -158,8 +161,9 @@ def solve_it(input_data):
     # the max_clique is the lower bound. at least this number of colors are required
     lb = len(max_clique)
         
-    # run the upper bound
-    real_ub, ub = upper_bound(G)
+    # run the upper bound. 
+    # in case that minizinc cannot find a single better solution, the heuristic solution will be the final one
+    real_ub, ub, solution = upper_bound(G)
     if DEBUG:
         print ('lb:', lb)
         print ('ub:', ub)
@@ -180,9 +184,9 @@ def solve_it(input_data):
     # it will reducing the upper bound until it cannot find a solution in time
     best_ub = 100000
     # these are the partial solutions
-    colors = 0
-    solution = []
-    timeout = 60*5
+    colors = ub
+    #solution = []
+    timeout = 20
 
     # the states are 'timeout', 'nsat', 'sat'
     minizinc_state = None
@@ -193,8 +197,8 @@ def solve_it(input_data):
         if DEBUG:
             print ("running with lb:", lb, "and ub:", ub)
         # generate MiniZinc data file
-        data_file = "data.dzn"
-        generateMinizincDataFile(node_count, edge_count, ub, ub, edges, data_file)
+        
+        generateMinizincDataFile(node_count, edge_count, ub, ub, edges, 'data.dzn')
 
         # solve with Minizinc's MIP solver (CBC of COIN-OR)
         minizinc_proc = Popen(['minizinc', '-m', 'graphColoring.mzn', '-d', 'data.dzn'],
@@ -323,7 +327,8 @@ def upper_bound(G):
     if DEBUG:
         print ('\n\n\nheuristic solutions:\n\n\n')
     skip_solutions_of_colors = 99999
-    best_heuristic_solution = 99999
+    best_heuristic_num_colors = 99999
+    best_heuristic_solution = None
     for c in heuristic_solutions:
         num_colors = c[max(c, key=c.get)]+1
         # sort the solution by the color number
@@ -357,15 +362,21 @@ def upper_bound(G):
         if 'UNSATISFIABLE' in stdout[0]:
             # try the next one
             if DEBUG:
-                print ('bad heuristic solution of size', num_colors, c)
+                print ('bad heuristic solution of size', num_colors, sorted_dict)
             pass
         else:
             # try the next one with fewer colors
             if DEBUG:
-                print ('good heuristic solution of size', num_colors, c)
+                print ('good heuristic solution of size', num_colors, sorted_dict)
             skip_solutions_of_colors = num_colors
-            best_heuristic_solution = num_colors
-        
+            best_heuristic_solution = c
+            best_heuristic_num_colors = num_colors
+        #sys.exit(1)
+    # now sort the dict by node index and the the color to each ordered node
+    if best_heuristic_solution != None:
+        sorted_tuples = sorted(best_heuristic_solution.items())
+        best_heuristic_solution = [i[1]+1 for i in sorted_tuples]
+
 
     # According to the book: "A Guide to Graph Colouring: Algorithms and Applications", 
     #  Section '2.2.2 Upper bounds',  the max degree can be used as an upper bound
@@ -391,8 +402,7 @@ def upper_bound(G):
         #res_list = [i for i, value in enumerate(degrees) if value == 0] 
         #print (res_list)
 
-
-    return max_degree, best_heuristic_solution
+    return max_degree, best_heuristic_num_colors, best_heuristic_solution
 
 ###################################################################################
 def check_clique(G, clique):
@@ -412,6 +422,7 @@ def get_cliques(G):
     # searching the cliques in G
     cliques = []
     max_clique = clique.max_clique(G)
+    #print ('MAAAX:', len(max_clique), max_clique)
     if not check_clique(G,max_clique):
         # crappy heuristics returned a false clique. ignore it
         max_clique = []
@@ -430,9 +441,11 @@ def get_cliques(G):
     # get the next better and actual clique
     for i in range(len(sorted_cliques)):
         if sorted_cliques[i][1] > len(max_clique):
-            max_clique = sorted_cliques[0][0]
+            new_max_clique = sorted_cliques[i][0]
             # if this clique is good, then use it as max_clique, else, accept the next good clique as max_clique
-            if check_clique(G,max_clique):
+            if check_clique(G,new_max_clique):
+                max_clique = new_max_clique
+                #print ('NEW MAAAX:', len(max_clique), max_clique)
                 break
     # remove the tuple to become a list of sets representing the cliques
     sorted_cliques = [a[0] for a in sorted_cliques]
