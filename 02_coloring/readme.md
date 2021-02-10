@@ -1,7 +1,10 @@
 
-# Constraint Programming 
+# Graph Coloring Problem with Constraint Programming and Heuristics
 
-# Graph Coloring Problems
+It integrates the minizinc for CP and Networkx heuristics.
+Minizinc is used in two modes: to try to get a solution withing a time period; 
+to check the satisfiability of the heuritic solutions.
+# Results
 
 Not using the results of the heuristics
 
@@ -14,12 +17,12 @@ Coloring Problem 6: ./data/gc_1000_5, colors: 128,time: to  ,grade:   ;
 
 Using the results of the heuristics
 
-Coloring Problem 1: ./data/gc_50_3,   colors: 9  ,time: 2.2s,grade: 10;
-Coloring Problem 2: ./data/gc_70_7,   colors: 20 ,time: 4s  ,grade: 3 ;
-Coloring Problem 3: ./data/gc_100_5,  colors: 17 ,time: 6s  ,grade:   ;
-Coloring Problem 4: ./data/gc_250_9,  colors: 90 ,time: --  ,grade:   ;
-Coloring Problem 5: ./data/gc_500_1,  colors: 16 ,time: 45s ,grade:   ;
-Coloring Problem 6: ./data/gc_1000_5, colors: 107,time: to  ,grade:   ;
+Coloring Problem 1: ./data/gc_50_3,   colors: 6  ,time: 2.2s,grade: 10;
+Coloring Problem 2: ./data/gc_70_7,   colors: 20 ,time: 4s  ,grade: 7 ;
+Coloring Problem 3: ./data/gc_100_5,  colors: 17 ,time: 6s  ,grade: 7 ;
+Coloring Problem 4: ./data/gc_250_9,  colors: 90 ,time: --  ,grade: 7 ;
+Coloring Problem 5: ./data/gc_500_1,  colors: 16 ,time: 45s ,grade: 10;
+Coloring Problem 6: ./data/gc_1000_5, colors: 107,time: to  ,grade: 7 ;
 
 
 to: timeout; --: could not run

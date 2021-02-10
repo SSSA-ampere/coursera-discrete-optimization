@@ -119,16 +119,19 @@ import statistics
 from nxviz.plots import MatrixPlot
 
 
-# TODO: usar Matrix plot p grafos grandes
+# TODO: use Matrix plot p grafos grandes
 # https://nxviz.readthedocs.io/en/latest/usage.html#matrix-plots
 # https://www.geeksforgeeks.org/exploring-correlation-in-python/
 # https://py3plex.readthedocs.io/en/latest/supra.html
 
-# TODO olhar https://stackoverflow.com/questions/62502906/how-to-improve-the-performance-of-my-graph-coloring-model-in-minizinc
+# TODO use https://stackoverflow.com/questions/62502906/how-to-improve-the-performance-of-my-graph-coloring-model-in-minizinc
 # https://ozgurakgun.github.io/ModRef2017/files/ModRef2017_SolutionCheckingWithMinizinc.pdf
 # https://stackoverflow.com/questions/45536579/optimization-of-minizinc-model
 
-DEBUG = True
+# TODO study networkx.maximal_independent_set()
+
+DEBUG = False
+timeout = 20
 
 def solve_it(input_data):
     # parse the input
@@ -152,9 +155,7 @@ def solve_it(input_data):
     # get the cliques used next
     max_clique, cliques = get_cliques(G)
 
-    # olhar: networkx.maximal_independent_set()
-
-    #  value x of the maximal clique can
+    # value x of the maximal clique can
     # be used to reduce the graph size by removing every
     # vertex that has a degree smaller than x − 1.
 
@@ -179,14 +180,10 @@ def solve_it(input_data):
     #gen_model2(G)
     #gen_model3(G)
 
-    #ub = lb
-    #lb = ub
     # it will reducing the upper bound until it cannot find a solution in time
     best_ub = 100000
     # these are the partial solutions
     colors = ub
-    #solution = []
-    timeout = 20
 
     # the states are 'timeout', 'nsat', 'sat'
     minizinc_state = None
@@ -243,7 +240,6 @@ def solve_it(input_data):
             if best_ub > ub:
                 best_ub = ub
                 colors, solution = extractSolution(stdout,node_count)
-                #best_solution = (colors, solution)
                 # let's repeat with a tigher upper bound and see if it's still satisfiable within the timeout
                 ub -= 1
 
@@ -302,7 +298,7 @@ def nxGraph(edges):
 
 ###################################################################################
 def upper_bound(G):
-    # run heuristics as a upper bound
+    # run Networkx heuristics as a upper bound
     strategies = ['largest_first', 'random_sequential', 'smallest_last', 'independent_set',
         'connected_sequential_bfs', 'connected_sequential_dfs', 'saturation_largest_first']
     # set of colors found by each execution
@@ -314,11 +310,7 @@ def upper_bound(G):
         for i in range(3):
             d = nx.coloring.greedy_color(G,s)
             MaxKey = max(d, key=d.get)
-            # if DEBUG:
-            #     print (d[MaxKey]+1)
-            #     print (d)
             colors.append(d[MaxKey]+1)
-            #print (d)
             heuristic_solutions.append(d)
 
     # check the heuristics solutions to see if they are indeed valid ones. minizinc will be used to check the solution.
@@ -334,7 +326,6 @@ def upper_bound(G):
         # sort the solution by the color number
         sorted_tuples = sorted(c.items(), key=lambda item: item[1])
         sorted_dict = {k: v for k, v in sorted_tuples}        
-        #print (c[max(c, key=c.get)]+1,'---', c)
         if num_colors >= skip_solutions_of_colors:
             continue
 
@@ -371,7 +362,6 @@ def upper_bound(G):
             skip_solutions_of_colors = num_colors
             best_heuristic_solution = c
             best_heuristic_num_colors = num_colors
-        #sys.exit(1)
     # now sort the dict by node index and the the color to each ordered node
     if best_heuristic_solution != None:
         sorted_tuples = sorted(best_heuristic_solution.items())
@@ -399,8 +389,6 @@ def upper_bound(G):
     if DEBUG:
         print ('heur upper bound:', colors)
         print ('stats (max, min, avg, med, low_deg_cnt):', max_degree, min_degree, avg_degree, med_degree, low_deg_cnt)
-        #res_list = [i for i, value in enumerate(degrees) if value == 0] 
-        #print (res_list)
 
     return max_degree, best_heuristic_num_colors, best_heuristic_solution
 
@@ -422,14 +410,12 @@ def get_cliques(G):
     # searching the cliques in G
     cliques = []
     max_clique = clique.max_clique(G)
-    #print ('MAAAX:', len(max_clique), max_clique)
     if not check_clique(G,max_clique):
         # crappy heuristics returned a false clique. ignore it
         max_clique = []
     # not recommended for graphs with more than 250 nodes. it has a huge memory use !
     if G.number_of_nodes() < 250:
         cliques = list(nx.algorithms.clique.find_cliques(G))
-    #print (type(cliques[0]))
 
     # sort the cliques by descending number of items.
     sorted_cliques = []
@@ -445,15 +431,12 @@ def get_cliques(G):
             # if this clique is good, then use it as max_clique, else, accept the next good clique as max_clique
             if check_clique(G,new_max_clique):
                 max_clique = new_max_clique
-                #print ('NEW MAAAX:', len(max_clique), max_clique)
                 break
     # remove the tuple to become a list of sets representing the cliques
     sorted_cliques = [a[0] for a in sorted_cliques]
     if DEBUG:
         print ('max clique:', len(max_clique), max_clique)
         print ('n cliques:', len(sorted_cliques))
-        # for i in sorted_cliques:
-        #     print (i)
 
     return max_clique, sorted_cliques
 
@@ -486,8 +469,14 @@ def gen_model(G, new_model_lines, templace_filename, model_filename):
         degree_list.append((n,len(G.adj[n])))
     degree_list.sort(key=lambda a: a[1])
 
-    #for i in degree_list:
-    #    print (i)
+    # create the minizinc model with the alldifferent constraints
+    mzn_tpl_file = open(model_filename, 'w')
+    for item in lines:
+        mzn_tpl_file.write("%s\n" % item)
+    mzn_tpl_file.close()
+
+    # THESE ARE TESTS THAT DID NOT GAVE MUCH RESULTS FOR THIS DATASET (MOSTLY RANDOM GRAPHS WITH HIGH DEGREE NODES)
+    # BUT THEY MIGHT BE USEFULL FOR OTHER DATASET
 
     # A vertex u is dominated by a vertex v, v =
     # u, if the neighborhood of u is a subset of the
@@ -641,83 +630,6 @@ def gen_model(G, new_model_lines, templace_filename, model_filename):
     # for i in no_adj_clique:
     #     print (i[0], i[1])
 
-
-    # create the minizinc model with the alldifferent constraints
-    mzn_tpl_file = open(model_filename, 'w')
-    for item in lines:
-        mzn_tpl_file.write("%s\n" % item)
-    mzn_tpl_file.close()
-
-
-###################################################################################
-def gen_model2(G):
-
-    # reading the minizinc template to insert the clique constraints
-    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
-    mzn_data = ''.join(mzn_tpl_file.readlines())
-    mzn_tpl_file.close()
-    lines = mzn_data.split('\n')
-
-    # searching the cliques in G
-    max_clique = [1]
-    if G.number_of_nodes() <= 500:
-        # not recommended for graphs with more than 500 nodes
-        max_clique = clique.max_clique(G)
-
-    # create the minizinc model with the alldifferent constraints
-    mzn_tpl_file = open('graphColoring.mzn', 'w')
-    for item in lines:
-        mzn_tpl_file.write("%s\n" % item)
-    mzn_tpl_file.close()
-
-###################################################################################
-def gen_model3(G):
-
-    # reading the minizinc template to insert the clique constraints
-    mzn_tpl_file = open('graphColoring-template.mzn', 'r')
-    mzn_data = ''.join(mzn_tpl_file.readlines())
-    mzn_tpl_file.close()
-    lines = mzn_data.split('\n')
-
-    # searching the cliques in G
-    max_clique = [1]
-    if G.number_of_nodes() <= 500:
-        # not recommended for graphs with more than 500 nodes
-        max_clique = clique.max_clique(G)
-        #print (max_clique)
-
-    i = 0
-    line_pos = 0
-    for l in lines:
-        if 'PUT_CLIQUES_HERE' in l:
-            del(lines[i])
-            line_pos = i
-            break
-        i +=1
-
-    # alldiff='['
-    # j=0
-    # for n in max_clique:
-    #     alldiff +='colors['+str(n)+']'
-    #     if j < len(max_clique)-1:
-    #         alldiff +=','
-    #     j +=1
-    # alldiff +=']'
-    # lines.insert(line_pos,'constraint alldifferent(%s);' % alldiff)
-
-    j=0
-    for n in max_clique:
-        lines.insert(line_pos,'constraint colors[%d] = %d;' % (n,j+1))
-        j +=1
-
-
-    # create the minizinc model with the alldifferent constraints
-    mzn_tpl_file = open('graphColoring.mzn', 'w')
-    for item in lines:
-        mzn_tpl_file.write("%s\n" % item)
-    mzn_tpl_file.close()
-
-
 ###################################################################################
 def graph_dot(G, max_clique, colors, solution, filename='graph'):
     """ It generates graphviz graphs.
@@ -786,18 +698,6 @@ def graph_dot(G, max_clique, colors, solution, filename='graph'):
     A.layout(prog='circo')
     A.draw(filename+".png")
 
-
-###################################################################################
-# not working. it misses some form of auto color assignment
-def graph_pyplot(G, colors, solution):
-
-    for n in G.nodes():
-        color_code = solution[n]-1
-        G.nodes[n]['color'] = selected_colors[color_code]
-
-    nx.draw(G, with_labels = True) 
-    plt.savefig("graph.svg") 
-
 ###################################################################################
 def generateMinizincDataFile(node_count, edge_count, lb, ub, edges, data_file):
     tmpFile = open(data_file, 'w')
@@ -828,6 +728,7 @@ def generateMinizincDataFile(node_count, edge_count, lb, ub, edges, data_file):
 
     tmpFile.write(out)
     tmpFile.close()
+
 ###################################################################################
 def extractSolution(stdout,node_count):
     solution = [0]*node_count
@@ -849,113 +750,6 @@ def extractSolution(stdout,node_count):
 
     return nColors, solution
 
-###################################################################################
-# See 'Matrix Reordering Methods for Table and Network Visualization'
-# to understand the seriation problem
-# See https://github.com/amamory/seriation for the seriation program
-def seriate(filename):
-    # coursera datafile
-    coursera_file = open(filename, 'r')
-    graph_data = ''.join(coursera_file.readlines())
-    coursera_file.close()
-    lines = graph_data.split('\n')
-    # the 1st line of coursera file is not used by seriation
-    del(lines[0])
-    # empty lines must be deleted
-    lines = [i for i in lines if i] 
-
-
-    # building the original graph
-    oG = nx.OrderedGraph()
-    for i in range(len(lines)):
-        parts = lines[i].split()
-        if len(parts) == 2:
-            oG.add_edge(int(parts[0]), int(parts[1]))
-    print ("original graph:")
-    print (oG.number_of_nodes())
-    print (oG.number_of_edges())
-
-    # plot the not seriated matrix
-    m = MatrixPlot(oG)
-    m.draw()
-    plt.savefig("nseriated.png") 
-
-    # just have to remove the 1st line 
-    seriation_ifile = open('graph.dat', 'w')
-    for item in lines:
-        seriation_ifile.write("%s\n" % item)
-    seriation_ifile.close()
-
-    # run seriation
-    run_seriation('graph.dat')
-
-    # read the seriated graph
-    seriation_ofile = open('seriated.dat', 'r')
-    graph_data = ''.join(seriation_ofile.readlines())
-    seriation_ofile.close()
-    lines = graph_data.split('\n')
-    # empty lines must be deleted
-    lines = [i for i in lines if i] 
-
-    # making is a list of tuple to perform sort
-    sorted_nodes = []
-    for l in lines:
-        parts = l.split()
-        sorted_nodes.append((int(parts[0]),int(parts[1])))
-    sorted_nodes.sort(key=lambda a: a[1])
-
-    # save back the ordered seriation file
-    seriation_ofile = open('seriated.dat', 'w')
-    for item in sorted_nodes:
-        seriation_ofile.write("%d %d\n" % (item[0], item[1]))
-    seriation_ofile.close()
-    # print ("sorted nodes")
-    # for i in sorted_nodes:
-    #     print (i)
-
-    # building the graph
-    seriation_ofile = open('seriated_graph.dat', 'w')
-    G = nx.OrderedGraph()
-    for i in sorted_nodes:
-        node_id = i[0]
-        for n in oG.adj[node_id]:
-            G.add_edge(node_id, n)
-            seriation_ofile.write("%d %d\n" % (node_id, n))
-    seriation_ofile.close()
-        
-    # uncheck it to see if the graphs are still the same    
-    #graph_dot(G, 1, [1]*G.number_of_nodes(),'seriated_graph')
-    if not nx.is_isomorphic(oG, G):
-        print ("ERROR: both graphs are not isomorphic")
-    else:
-        print ("both graphs are isomorphic")
-
-    print ("seriated graph:")
-    print ([i[0] for i in sorted_nodes])
-    print (G.number_of_nodes())
-    print (G.number_of_edges())
-
-    # plot the seriated matrix
-    m = MatrixPlot(G)
-    m.draw()
-    plt.savefig("seriated.png") 
-
-    
-###################################################################################
-def run_seriation(graph_filename):
-
-    graph_filename = 'f='+graph_filename
-    proc = Popen(['./cfm-seriation', graph_filename],
-            stdout=PIPE, stderr=PIPE)
-    try:
-        proc.communicate()
-    except Exception as e:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM) 
-        proc.kill()
-        print ("Error running seriation")
-        sys.exit(1)
-        
-
 # ##################################################################################        
 import sys
 
@@ -965,8 +759,6 @@ if __name__ == '__main__':
         input_data_file = open(file_location, 'r')
         input_data = ''.join(input_data_file.readlines())
         input_data_file.close()
-        # if DEBUG:
-        #     seriate(file_location)
         print ('Solving:', file_location)
         print (solve_it(input_data))
     else:
