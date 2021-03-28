@@ -171,3 +171,14 @@ $ snakeviz program.prof
 # To go even further
 
  - Pisinger, David. "Where are the hard knapsack problems?." Computers & Operations Research 32.9 (2005): 2271-2284.
+
+
+# To do
+
+Improve visualization with:
+
+ - https://github.com/coin-or/GrUMPy
+ - https://github.com/jrfonseca/xdot.py
+ - embedded example: https://github.com/jrfonseca/xdot.py/blob/master/sample.py
+ - http://zvtm.sourceforge.net/zgrviewer.html
+ 

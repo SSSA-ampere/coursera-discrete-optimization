@@ -27,7 +27,19 @@ Coloring Problem 6: ./data/gc_1000_5, colors: 107,time: to  ,grade: 7 ;
 
 to: timeout; --: could not run
 
-## References
+
+# Best Results
+
+As stated in the [Leaderboard](https://www.coursera.org/learn/discrete-optimization/discussions/weeks/3/threads/oLKvaNbdEeaM2BLvxl_obA), the best results for the 6 problems are:
+
+ - gc1 = 6; 
+ - gc2 = 17; 
+ - gc3 = 15; 
+ - gc4 = 73; 
+ - gc5 = 12; 
+ - gc6 = 86.
+
+# References
 
  - Patrick Winston. ["Constraints: Search, Domain Reduction"](https://www.youtube.com/watch?v=d1KyYyLmGpA&list=PLUl4u3cNGP63gFHB6xb-kVBiQHYe_4hSi&index=8). 2010. 
  - Chris Beck. ["Constraint Programming for Planning and Scheduling (part1)"](https://www.youtube.com/watch?v=Di4CvXInmOE). 2016.
